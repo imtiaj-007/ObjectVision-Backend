@@ -1,0 +1,52 @@
+# Ignore virtual environments
+venv/
+
+# Byte-compiled Python files
+*.pyc
+*.pyo
+__pycache__/
+
+# Logs
+logs/
+*.log
+
+# Environment variables
+.env
+.env.*
+
+# Migrations
+alembic/versions/*.pyc
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Python egg metadata
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Docker-related files (if using Docker)
+*.env.docker
+docker-compose.override.yml
+
+# Testing/coverage files
+htmlcov/
+.coverage
+.cache
+.pytest_cache/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Others
+*.bak
+*.tmp
