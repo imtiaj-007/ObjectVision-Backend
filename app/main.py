@@ -1,12 +1,13 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 from dotenv import load_dotenv
 
-from app.middleware.authenticate import AuthenticateUserMiddleware
 from app.configuration.config import settings  
 from app.db.database import DatabaseConfig, DatabaseManager
+from app.scheduler.session_scheduler import lifespan as scheduler_lifespan
 
 # Load environment variables
 load_dotenv()
@@ -15,18 +16,30 @@ load_dotenv()
 db_config = DatabaseConfig(settings.DATABASE_URL)
 db_manager = DatabaseManager(db_config)
 
+@asynccontextmanager
+async def combined_lifespan(app: FastAPI):
+    """
+    Combine lifespan context managers for both the DB and the Scheduler.
+    This ensures that both the database connection and the scheduler 
+    are properly started and stopped.
+    """
+    # Start DB lifespan
+    async with db_manager.lifespan(app):
+        # Start Scheduler lifespan
+        async with scheduler_lifespan(app):
+            yield
+
 # Create FastAPI application
 app = FastAPI(
     title="Object Detection API",
     description="ML-powered object detection service",
     version="0.1.0",
-    lifespan=db_manager.lifespan
+    lifespan=combined_lifespan
 )
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    AuthenticateUserMiddleware,
     allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"], 

@@ -1,7 +1,8 @@
-from sqlmodel import SQLModel, Field
+from sqlmodel import Field
 from enum import Enum
 from typing import Optional
 from datetime import datetime, timezone
+from app.db.database import Base
 
 
 # User Role Enum
@@ -11,7 +12,7 @@ class UserRole(int, Enum):
     USER = 3
 
 
-class User(SQLModel, table=True):
+class User(Base, table=True):
     __tablename__ = "users"
 
     id: Optional[int] = Field(default=None, primary_key=True)

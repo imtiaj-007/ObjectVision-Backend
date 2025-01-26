@@ -18,6 +18,7 @@ logs/
 
 # Migrations
 alembic/versions/*.pyc
+alembic.ini
 
 # IDE settings
 .vscode/

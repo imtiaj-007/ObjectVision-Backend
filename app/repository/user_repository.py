@@ -29,6 +29,19 @@ class UserRepository:
         await db.refresh(db_user)
 
         return db_user
+    
+    @staticmethod
+    async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User] | None:
+        """Retrieve a user by user_id."""
+        try:
+            result = await db.execute(select(User).where(User.id == user_id))
+            return result.scalar_one_or_none()
+        except Exception as e:
+            print(f"Error retrieving user by user_id {user_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve user by username"
+            )
 
     @staticmethod
     async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User] | None:
