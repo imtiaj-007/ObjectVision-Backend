@@ -173,3 +173,11 @@ class TokenResponse(BaseModel):
         example="Bearer",
         description="Type of the token, typically 'Bearer'."
     )
+
+# Logout Response
+class LogoutResponse(BaseModel):
+    message: str = Field(
+        None,
+        example="You have successfully logged out.",
+        description="A message stating logout is successful."
+    )

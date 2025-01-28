@@ -1,7 +1,5 @@
-from typing import Optional
-from sqlmodel import select
+from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import HTTPException, status
 
 from app.configuration.security import SecurityConfig
 from app.models.user_model import UserCreate
@@ -14,57 +12,25 @@ class UserRepository:
         """Create a new user in the database."""
         hashed_password = SecurityConfig.get_password_hash(user.password)
 
-        db_user = User(
-            username=user.username,
-            email=user.email,
-            password=hashed_password,
-            role=UserRole.USER.value,
-            mobile=user.mobile,
-            is_active=True,
-            is_blocked=False,
-        )
+        user_data: Dict[str, Any] = {
+            "email": user.email,
+            "password": hashed_password,
+            "role": UserRole.USER.value,
+            "is_active": True,
+            "is_blocked": False
+        }
+        
+        # Dynamically add optional fields if they exist
+        if hasattr(user, 'name') and user.name:
+            user_data["name"] = user.name
+        if hasattr(user, 'username') and user.username:
+            user_data["username"] = user.username
+
+        # Create user instance with dynamic fields
+        db_user = User(**user_data)
 
         db.add(db_user)
         await db.commit()
         await db.refresh(db_user)
 
-        return db_user
-    
-    @staticmethod
-    async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User] | None:
-        """Retrieve a user by user_id."""
-        try:
-            result = await db.execute(select(User).where(User.id == user_id))
-            return result.scalar_one_or_none()
-        except Exception as e:
-            print(f"Error retrieving user by user_id {user_id}: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve user by username"
-            )
-
-    @staticmethod
-    async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User] | None:
-        """Retrieve a user by username."""
-        try:
-            result = await db.execute(select(User).where(User.username == username))
-            return result.scalar_one_or_none()
-        except Exception as e:
-            print(f"Error retrieving user by username {username}: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve user by username"
-            )
-
-    @staticmethod
-    async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User] | None:
-        """Retrieve a user by email."""
-        try:
-            result = await db.execute(select(User).where(User.email == email))
-            return result.scalar_one_or_none()
-        except Exception as e:
-            print(f"Error retrieving user by email {email}: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve user by email"
-            )   
+        return db_user        

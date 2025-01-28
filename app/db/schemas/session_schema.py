@@ -14,11 +14,16 @@ class UserSession(Base, table=True):
         json_schema_extra = {
             "example": {
                 "user_id": 1,
+                "access_token": "access_token_string",
                 "refresh_token": "token_string",
+                "oauth_token": "oauth_token_string",
+                "oauth_provider": "google",
                 "user_agent": "Mozilla/5.0",
                 "ip_address": "192.168.1.1",
                 "device_type": "mobile",
                 "location": "New York, USA",
+                "is_active": True,
+                "login_attempts": 0,
                 "expires_at": "2025-01-01T12:00:00Z"
             }
         }
@@ -27,11 +32,13 @@ class UserSession(Base, table=True):
     __tablename__ = 'user_sessions'
 
     id: int = Field(default=None, primary_key=True, nullable=False)
-    user_id: int = Field(foreign_key="user.id", index=True)  
-    refresh_token: str = Field(unique=True, index=True, nullable=True)
-    user_agent: str = Field(index=True)
-    ip_address: str = Field(max_length=45, index=True)
-    is_expired: bool = Field(default=False)
+    user_id: int = Field(foreign_key="users.id", index=True)  
+    access_token: str = Field(unique=True, index=True, nullable=False)
+    refresh_token: str = Field(unique=True, index=True, nullable=False)
+    oauth_token: Optional[str] = Field(default=None, description="Google OAuth ID token")
+    oauth_provider: Optional[str] = Field(default=None, max_length=50, description="OAuth provider name")
+    user_agent: str = Field(min_length=10, max_length=300, default=None, index=False)
+    ip_address: str = Field(max_length=45, index=False)
     device_type: Optional[str] = Field(default=None, max_length=50)
     location: Optional[Dict[str, Any]] = Field(default=None, sa_type=JSON, description="User location in JSON format")
 

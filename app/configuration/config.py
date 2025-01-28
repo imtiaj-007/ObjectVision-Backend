@@ -2,6 +2,11 @@ import os
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
+    # Frontend URLs
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
+    FRONTEND_SUCCESS_URL: str = "http://localhost:3000/auth/success"
+    FRONTEND_ERROR_URL: str = "http://localhost:3000/auth/error"
+
     # Database Configuration with defaults from environment variables
     DB_USER: str = 'postgres'
     DB_PASSWORD: str = ''
@@ -11,6 +16,11 @@ class Settings(BaseSettings):
     # Machine Learning Configuration
     MODEL_PATH: str = "/path/to/ml/model"
     CONFIDENCE_THRESHOLD: float = 0.5
+
+    # Google OAuth 2.0 credentials
+    GOOGLE_CLIENT_ID: str = 'your_google_oAuth_client_id'
+    GOOGLE_CLIENT_SECRET: str = 'your_google_oAuth_client_secret'
+    GOOGLE_REDIRECT_URI: str = 'your_google_oAuth_redirect_url_example:http://127.0.0.1:8000/auth/google/callback'
 
     # API Settings
     SECRET_KEY: str = 'your_secret_api_key'
