@@ -8,6 +8,9 @@ from sqlmodel import SQLModel
 from app.configuration.config import settings
 
 
+# Base Model for alembic
+Base = SQLModel
+
 class DatabaseConfig:
     def __init__(self, db_url: str):
         """Initialize database engine and sessionmaker."""
@@ -28,9 +31,6 @@ class DatabaseManager:
         This initializes the database and ensures the connection is closed properly.
         """
         try:
-            async with self.config.engine.begin() as conn:
-                # Create tables based on SQLModel metadata
-                await conn.run_sync(SQLModel.metadata.create_all)
             print("✅ Database connection established successfully.")
             yield
         except Exception as e:
