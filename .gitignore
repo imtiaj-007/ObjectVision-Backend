@@ -1,5 +1,6 @@
 # Ignore virtual environments
 venv/
+.venv/
 
 # Byte-compiled Python files
 *.pyc
@@ -12,10 +13,12 @@ logs/
 
 # Environment variables
 .env
-.env.*
+.env.development
+.env.production
 
 # Migrations
 alembic/versions/*.pyc
+alembic.ini
 
 # IDE settings
 .vscode/
