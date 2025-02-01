@@ -3,14 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repository.user_repository import UserRepository
 from app.repository.auth_repository import AuthRepository
-from app.models.user_model import (
-    UserCreate,
-)
+from app.schemas.user_schema import UserCreate
 
 
 class UserService:          
         
-    @classmethod
+    @staticmethod
     async def create_user(db: AsyncSession, user_data: UserCreate):
         """Create a new User"""
         # Check if the user already exists

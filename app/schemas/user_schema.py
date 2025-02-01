@@ -1,8 +1,14 @@
 from typing import Optional
+from enum import Enum
 from pydantic import BaseModel, EmailStr, Field, StringConstraints
 from typing_extensions import Annotated
 from datetime import datetime
-from app.db.schemas.user_schema import UserRole
+
+# User Role Enum
+class UserRole(int, Enum):
+    ADMIN = 1
+    SUB_ADMIN = 2
+    USER = 3
 
 
 # Base User Model (Shared Fields)
@@ -124,11 +130,14 @@ class UserResponse(UserBase):
 
 # Login Request (Input for Authentication)
 class UserLogin(BaseModel):
-    email: EmailStr = Field(
-        ...,
-        example="user@example.com",
-        description="Email address of the user for authentication."
-    )
+    user_key: Annotated[
+        EmailStr | str,
+        Field(
+            ...,
+            examples=["user@example.com", "user123"],
+            description="Email address or username for authentication."
+        )
+    ]
     password: Annotated[
         str,
         StringConstraints(min_length=8, max_length=64)
@@ -138,41 +147,6 @@ class UserLogin(BaseModel):
         description="Password of the user for authentication."
     )
 
-
-# Token Data (Stored in Access Tokens)
-class TokenData(BaseModel):
-    sub: Optional[str] = Field(
-        None,
-        example="john_doe",
-        description="Subject or username of the user."
-    )
-    user_id: Optional[int] = Field(
-        None,
-        example=1,
-        description="Unique identifier of the user."
-    )
-    role: Optional[int] = Field(
-        None,
-        example=UserRole.USER.value,
-        description="Role of the user (stored in the token)."
-    )
-
-
-# Access Token Response (Output for Token API)
-class TokenResponse(BaseModel):
-    access_token: Annotated[
-        str,
-        StringConstraints(min_length=20, max_length=500)
-    ] = Field(
-        ...,
-        example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-        description="JWT access token for the user."
-    )
-    token_type: str = Field(
-        ...,
-        example="Bearer",
-        description="Type of the token, typically 'Bearer'."
-    )
 
 # Logout Response
 class LogoutResponse(BaseModel):

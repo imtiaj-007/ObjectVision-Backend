@@ -6,14 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configuration.config import settings
 from app.configuration.oauth import google_oauth
-
 from app.db.database import db_session_manager
+
 from app.services.auth_service import AuthService
 from app.services.session_service import SessionService
-from app.models.user_model import (
-    UserLogin,
-    TokenResponse,
-)
+from app.schemas.user_schema import UserLogin
+from app.schemas.token_schema import TokenResponse
 
 
 router = APIRouter()
@@ -27,31 +25,33 @@ async def user_login(
     request: Request,
     response: Response,
     login_data: UserLogin,
-    db: AsyncSession = Depends(db_session_manager.get_db),
     remember_me: bool = False,
     new_device: bool = False,
+    db: AsyncSession = Depends(db_session_manager.get_db),
 ) -> TokenResponse:
     """Authenticate user and manage session"""
     try:
         user = await AuthService.authenticate_user(db, login_data) 
+        current_session = await SessionService.get_user_session(db, user.id)
+
+        # If user tries to login from new_device
+        if new_device and current_session:
+            await AuthService.logout_user(db, user.id, None, current_session.refresh_token, all_devices=True)
+
         return await SessionService.handle_user_session(
             request, 
             response, 
             db, 
             user, 
             remember_me, 
-            new_device
+            current_session
         )
 
     except HTTPException as http_error:
-        raise http_error
+        raise
     
     except Exception as e:
-        print(f"Unexpected error in user_login: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred while logging in",
-        )
+        raise 
 
 @router.get(
     "/oauth/google",
