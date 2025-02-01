@@ -4,20 +4,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repository.auth_repository import AuthRepository
 from app.repository.session_repository import SessionRepository
-from app.db.schemas.user_schema import User
 
 from app.services.user_service import UserService
 from app.services.session_service import SessionService
 from app.services.password_service import PasswordService
 from app.services.token_service import TokenService
-from app.models.user_model import (
-    UserLogin,
-    TokenResponse,
-)
+
+from app.db.models.user_model import User
+from app.schemas.user_schema import UserLogin
+from app.schemas.token_schema import TokenResponse
 
 
 class AuthService:    
-    @classmethod
+    @staticmethod
     async def get_current_user(
         db: AsyncSession, 
         token: str = Depends(TokenService.oauth2_scheme)
@@ -49,7 +48,7 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
     
-    @classmethod
+    @staticmethod
     async def authenticate_user(
         db: AsyncSession, 
         login_data: UserLogin
@@ -83,9 +82,8 @@ class AuthService:
                 detail="Authentication process failed due to a server error",
             )
     
-    @classmethod
+    @staticmethod
     async def handle_google_oauth(
-        cls, 
         request: Request,
         response: Response,
         db: AsyncSession, 
@@ -126,7 +124,7 @@ class AuthService:
                 detail="Logout process failed due to a server error",
             )
         
-    @classmethod
+    @staticmethod
     async def logout_user(
         db: AsyncSession,
         user_id: int,

@@ -3,11 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import db_session_manager
 from app.services.user_service import UserService
-from app.models.user_model import (
-    UserCreate,
-    UserUpdate,
-    UserResponse,
-)
+from app.schemas.user_schema import UserCreate, UserUpdate, UserResponse
 
 
 router = APIRouter()

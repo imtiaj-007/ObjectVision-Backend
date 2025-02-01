@@ -5,8 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 
 from app.configuration.config import settings
-from app.db.schemas.user_schema import User
-from app.models.user_model import TokenResponse
+from app.db.models.user_model import User
 
 
 class TokenService:
@@ -49,7 +48,7 @@ class TokenService:
         return refresh_token
     
     @classmethod
-    def create_user_token(cls, user: User) -> TokenResponse:
+    def create_user_token(cls, user: User) -> Dict[str, Any]:
         """
         Generate JWT token for authenticated user.
         Includes exception handling.
@@ -61,7 +60,7 @@ class TokenService:
                 "role": user.role,
             }
             token = cls.create_access_token(token_data)
-            return TokenResponse(access_token=token, token_type="Bearer")
+            return { "access_token": token, "token_type": "Bearer" }
 
         except HTTPException as http_error:
             raise http_error

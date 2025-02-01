@@ -6,9 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 from dotenv import load_dotenv
 
-from app.configuration.config import settings
+from app.middleware.request_logger import RequestLoggerMiddleware
 from app.db.database import DatabaseConfig, DatabaseManager
 from app.scheduler.session_scheduler import lifespan as scheduler_lifespan
+from app.handlers.exception import ExceptionHandler
+from app.configuration.config import settings
+from app.utils.logger import log
 
 # Load environment variables
 load_dotenv()
@@ -16,6 +19,7 @@ load_dotenv()
 # Initialize the database configuration & manager
 db_config = DatabaseConfig(settings.DATABASE_URL)
 db_manager = DatabaseManager(db_config)
+
 
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
@@ -26,30 +30,33 @@ async def combined_lifespan(app: FastAPI):
     """
     try:
         # Start DB connection
-        async with db_manager.lifespan(app):
+        async with db_manager.lifespan(app):            
             # Start Session Scheduler
             async with scheduler_lifespan(app):
-                print("🔁 Session schedular startup complete - running application")
+                log.info("🔁 Session schedular startup complete - running application")
                 yield
     finally:
-        print("Shutdown complete")
+        log.info("✅ Shutdown complete")
 
 
 # Create FastAPI application
 app = FastAPI(
     title="Object Detection API",
     description="ML-powered object detection service",
-    version="0.1.0",
+    version="1.0.0",
     lifespan=combined_lifespan
 )
 
-# Add session middleware for OAuth support
+# Custom exception handler to log Exceptions
+exception_handler = ExceptionHandler(app)
+
+# Session middleware for OAuth support
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY
 )
 
-# Add CORS middleware
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -58,8 +65,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# RequestLogger middleware for logging req-res
+app.add_middleware(
+    RequestLoggerMiddleware,
+    exclude_paths={"/health", "/metrics", "/favicon.ico", "/docs", "/openapi.json"},
+    slow_request_threshold=1.0,
+    max_body_size=1024 * 100,
+    sensitive_headers={"authorization", "cookie", "x-api-key", "session", "csrf"}
+)
+
 # Import and include routers
-from app.route import router as api_router
+from app.routes import router as api_router
 app.include_router(api_router, prefix='/api')
 
 
@@ -72,6 +88,7 @@ async def health_check(db: AsyncSession = Depends(db_manager.get_db)):
     
     except Exception as e:
         print(f"Database health check failed: {str(e)}")
+        log.critical(f"Database health check failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database connection failed"

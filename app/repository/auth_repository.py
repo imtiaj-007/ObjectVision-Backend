@@ -3,7 +3,7 @@ from sqlmodel import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.db.schemas.user_schema import User
+from app.db.models.user_model import User
 
 
 class AuthRepository:
