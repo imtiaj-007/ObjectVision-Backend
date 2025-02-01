@@ -2,14 +2,17 @@ import os
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
+    # env type
+    ENVIORNMENT: str = "development"
+
     # Frontend URLs
     FRONTEND_BASE_URL: str = "http://localhost:3000"
-    FRONTEND_SUCCESS_URL: str = "http://localhost:3000/auth/success"
-    FRONTEND_ERROR_URL: str = "http://localhost:3000/auth/error"
+    FRONTEND_SUCCESS_URL: str = "http://localhost:3000/success"
+    FRONTEND_ERROR_URL: str = "http://localhost:3000/error"
 
     # Database Configuration with defaults from environment variables
     DB_USER: str = 'postgres'
-    DB_PASSWORD: str = ''
+    DB_PASSWORD: str = 'secret_password'
     DB_HOST: str = 'localhost'
     DB_NAME: str = 'objectdetection'
 
@@ -20,11 +23,25 @@ class Settings(BaseSettings):
     # Google OAuth 2.0 credentials
     GOOGLE_CLIENT_ID: str = 'your_google_oAuth_client_id'
     GOOGLE_CLIENT_SECRET: str = 'your_google_oAuth_client_secret'
-    GOOGLE_REDIRECT_URI: str = 'your_google_oAuth_redirect_url_example:http://127.0.0.1:8000/auth/google/callback'
+    GOOGLE_REDIRECT_URI: str = 'your_google_oAuth_redirect_url'
 
     # API Settings
     SECRET_KEY: str = 'your_secret_api_key'
     TOKEN_EXPIRY: int = 30
+
+    # Log settings
+    LOG_ROTATION: str = "00:00"
+    LOG_RETENTION: str = "30 days"
+
+    # Celery credentials
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0" or "pyamqp://guest@localhost//"
+    CELERY_BACKEND_URL: str = "redis://localhost:6379/0" or "pyamqp://guest@localhost//"
+    MAX_RETRIES: int = 3
+
+    # Queue namings
+    LOGGING_QUEUE: str = "logging"
+    TOKEN_QUEUE: str = "tokens"
+    EMAIL_QUEUE: str = "emails"
 
     # Async SQLAlchemy Database URL
     @property

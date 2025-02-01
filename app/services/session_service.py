@@ -4,14 +4,13 @@ from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.schemas.user_schema import User
-from app.db.schemas.session_schema import UserSession
+from app.db.models.user_model import User
+from app.db.models.session_model import UserSession
 from app.repository.session_repository import SessionRepository
 
 from app.services.token_service import TokenService
-from app.models.user_model import (
-    TokenResponse,
-)
+from app.schemas.token_schema import TokenResponse
+
 
 class SessionService:
     @staticmethod
@@ -65,7 +64,7 @@ class SessionService:
                 "location": None
             }
     
-    @classmethod
+    @staticmethod
     async def get_user_session(db: AsyncSession, user_id: int) -> Optional[UserSession]:
         """Get current active user session"""
         try:
@@ -100,19 +99,20 @@ class SessionService:
             device_info = await cls.get_device_info(ip_address, user_agent)
 
             # Create access and refresh tokens
-            access_token = TokenService.create_user_token(user_data)
+            user_token = TokenService.create_user_token(user_data)
             refresh_token_expiry = datetime.now(timezone.utc) + timedelta(days=7 if remember_me else 1)
             refresh_token = TokenService.create_refresh_token(user_data, ip_address, user_agent, refresh_token_expiry)           
 
             # Store new session in DB
             session_data: UserSession = {
                 "user_id": user_data.id,
+                "access_token": user_token.get('access_token'),
                 "refresh_token": refresh_token,
                 "user_agent": user_agent,
                 "ip_address": ip_address,
                 "device_type": device_info.get("device_type"),
                 "location": device_info.get("location"),
-                "expires_at": refresh_token_expiry
+                "expires_at": refresh_token_expiry.replace(tzinfo=None)
             }
             if oAuth_obj:
                 session_data.update(oAuth_obj)
@@ -126,7 +126,7 @@ class SessionService:
                 secure=True,
                 samesite="Strict"
             )
-            return { "access_token": access_token, "token_type": "Bearer" }
+            return user_token
         
         except HTTPException as http_error:
             raise http_error
@@ -138,7 +138,7 @@ class SessionService:
                 detail="Failed to generate session",
             )
         
-    @classmethod
+    @staticmethod
     async def update_user_session(
         request: Request, 
         db: AsyncSession, 
@@ -167,12 +167,9 @@ class SessionService:
             user_agent = request.headers.get("User-Agent")
 
             if ip_address == current_session.ip_address and user_agent == current_session.user_agent:
-                new_access_token = TokenService.create_user_token(user_data)
-                await SessionRepository.update_access_token(db, current_session, new_access_token)
-                return { 
-                    "access_token": new_access_token, 
-                    "token_type": "Bearer" 
-                }
+                new_token = TokenService.create_user_token(user_data)
+                await SessionRepository.update_access_token(db, current_session, new_token.get('access_token'))
+                return new_token
             else:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -197,18 +194,13 @@ class SessionService:
         db: AsyncSession, 
         user_data: User, 
         remember_me: bool = False,
-        new_device: bool = False,
+        current_session: UserSession = None,
         oAuth_obj: Dict[str, Any] = None
     ) -> TokenResponse:
         """Validate user_session and store device information"""
         try:
-            current_session = await cls.get_user_session(db, user_data.id)
-
-            if new_device and current_session:
-                # If user tries to login from new_device
-                await AuthService.logout_user(db, user_data.id, None, current_session.refresh_token, all_devices=True)
-            elif current_session:
-                # If user tries to login form old_device
+            # If user tries to login form old_device
+            if current_session:
                 return await cls.update_user_session(request, db, user_data, current_session)
 
             # In case of new_device / fresh_login create a new session for User

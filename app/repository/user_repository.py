@@ -1,16 +1,16 @@
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.configuration.security import SecurityConfig
-from app.models.user_model import UserCreate
-from app.db.schemas.user_schema import User, UserRole
+from app.services.password_service import PasswordService
+from app.schemas.user_schema import UserCreate, UserRole
+from app.db.models.user_model import User
 
 
 class UserRepository:
     @staticmethod
     async def create_user(db: AsyncSession, user: UserCreate) -> User:
         """Create a new user in the database."""
-        hashed_password = SecurityConfig.get_password_hash(user.password)
+        hashed_password = PasswordService.get_password_hash(user.password)
 
         user_data: Dict[str, Any] = {
             "email": user.email,

@@ -4,7 +4,7 @@ from sqlmodel import select, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.db.schemas.session_schema import UserSession
+from app.db.models.session_model import UserSession
 
 
 class SessionRepository:
@@ -96,7 +96,7 @@ class SessionRepository:
                 .where(UserSession.id == session.id)
                 .values(
                     access_token=new_access_token,
-                    updated_at=datetime.now(timezone.utc)
+                    updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
                 )
             )
             result = await db.execute(query)
@@ -138,7 +138,7 @@ class SessionRepository:
             )
             .values(
                 is_active=False,
-                updated_at=datetime.now(timezone.utc)
+                updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
             )
         )
         await db.execute(query)
