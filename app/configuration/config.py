@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     TOKEN_QUEUE: str = "tokens"
     EMAIL_QUEUE: str = "emails"
 
+    # IP_API_BASE_URL (If you don't have this Create one for free from here [https://apiip.net/])
+    IP_API_BASE_URL: str = "https://apiip.net/api/check"
+    IP_API_ACCESS_KEY: str = "your_IP_api_access_key"
+
     # Async SQLAlchemy Database URL
     @property
     def DATABASE_URL(self) -> str:

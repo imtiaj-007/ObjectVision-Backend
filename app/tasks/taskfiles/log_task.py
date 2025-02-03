@@ -16,7 +16,6 @@ from app.utils.logger import log
 )
 def store_log_entry( self, log_data: dict ):
     """Store a single log entry"""
-    print("log_data: ", log_data)
     try:                
         if isinstance(log_data, str):
             log_data = json.loads(log_data)

@@ -12,6 +12,7 @@ from app.scheduler.session_scheduler import lifespan as scheduler_lifespan
 from app.handlers.exception import ExceptionHandler
 from app.configuration.config import settings
 from app.utils.logger import log
+from app.docs import app_description
 
 # Load environment variables
 load_dotenv()
@@ -33,7 +34,6 @@ async def combined_lifespan(app: FastAPI):
         async with db_manager.lifespan(app):            
             # Start Session Scheduler
             async with scheduler_lifespan(app):
-                log.info("🔁 Session schedular startup complete - running application")
                 yield
     finally:
         log.info("✅ Shutdown complete")
@@ -42,7 +42,7 @@ async def combined_lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="Object Detection API",
-    description="ML-powered object detection service",
+    description=app_description,
     version="1.0.0",
     lifespan=combined_lifespan
 )

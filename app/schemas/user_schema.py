@@ -13,13 +13,21 @@ class UserRole(int, Enum):
 
 # Base User Model (Shared Fields)
 class UserBase(BaseModel):
-    username: Annotated[
+    username: Optional[Annotated[
+        str, 
+        StringConstraints(min_length=3, max_length=15)
+    ]] = Field(
+        None,
+        example="john_doe",
+        description="Unique username for the user (3-15 characters)."
+    )
+    name: Optional[Annotated[
         str, 
         StringConstraints(min_length=3, max_length=50)
-    ] = Field(
-        ...,
-        example="john_doe",
-        description="Unique username for the user (3-50 characters)."
+    ]] = Field(
+        None,
+        example="John Doe",
+        description="Actual Name of the user (3-50 characters)."
     )
     email: EmailStr = Field(
         ...,
@@ -55,16 +63,19 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     username: Optional[Annotated[
         str, 
+        StringConstraints(min_length=3, max_length=15)
+    ]] = Field(
+        None,
+        example="john_doe",
+        description="Unique username for the user (3-15 characters)."
+    )
+    name: Optional[Annotated[
+        str, 
         StringConstraints(min_length=3, max_length=50)
     ]] = Field(
         None,
-        example="new_username",
-        description="Updated username for the user (optional, 3-50 characters)."
-    )
-    email: Optional[EmailStr] = Field(
-        None,
-        example="new_email@example.com",
-        description="Updated email address of the user (optional)."
+        example="John Doe",
+        description="Actual Name of the user (3-50 characters)."
     )
     mobile: Optional[Annotated[
         str,

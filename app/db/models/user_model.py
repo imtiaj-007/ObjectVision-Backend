@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 
 from app.db.database import Base
+from app.schemas.user_schema import UserRole
 
 
 class User(Base, table=True):

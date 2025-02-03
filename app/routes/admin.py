@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.db.schemas.admin_schema import AdminUserCreate, AdminUserUpdate, ModelConfig, SystemConfig
+from app.schemas.admin_schema import AdminUserCreate, AdminUserUpdate, ModelConfig, SystemConfig
 
 router = APIRouter()
 

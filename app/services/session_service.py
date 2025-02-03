@@ -1,15 +1,19 @@
-import httpx
+import requests
+from urllib.parse import urlencode
 from typing import Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.handlers.exception import CustomException
 
+from app.configuration.config import settings
 from app.db.models.user_model import User
 from app.db.models.session_model import UserSession
 from app.repository.session_repository import SessionRepository
 
 from app.services.token_service import TokenService
 from app.schemas.token_schema import TokenResponse
+from app.utils.logger import log
 
 
 class SessionService:
@@ -29,25 +33,36 @@ class SessionService:
 
     @staticmethod
     async def get_location_by_ip(ip: str) -> Dict:
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(f"https://ipapi.co/{ip}/json/")
-                data = response.json()
-                return {
-                    "ip": ip,
-                    "city": data.get("city", "Unknown"),
-                    "country": data.get("country_name", "Unknown"),
-                    "latitude": data.get("latitude"),
-                    "longitude": data.get("longitude"),
-                }
-            except Exception:
-                return {
-                    "ip": ip,
-                    "city": "Unknown",
-                    "country": "Unknown",
-                    "latitude": None,
-                    "longitude": None,
-                }    
+        try:
+            base_url = settings.IP_API_BASE_URL or "https://apiip.net/api/check"
+            access_token = settings.IP_API_ACCESS_KEY
+
+            params = {
+                "ip": ip,
+                "accessKey": access_token,
+                "output": "json"
+            }
+            url = f"{base_url}?{urlencode(params)}"
+
+            # Get location information from ApiIP API
+            res = requests.get(url)
+            location_response = res.json()
+
+            if location_response and location_response.success == False:
+                raise CustomException(f"Error getting location info by IP: {e}")
+            
+            return location_response
+        
+        except Exception as e:
+            log.error(f"Error getting location info by IP: {e}")
+            return {
+                "ip": ip,
+                "city": "Unknown",
+                "country": "Unknown",
+                "latitude": None,
+                "longitude": None,
+            }        
+                
     
     @classmethod
     async def get_device_info(cls, ip_address: str, user_agent: str) -> Dict:
@@ -143,13 +158,13 @@ class SessionService:
         request: Request, 
         db: AsyncSession, 
         user_data: User, 
-        current_session: UserSession,
+        current_session: UserSession
     ) -> TokenResponse:
         """Update access, refresh token and device information"""
         try:            
-            # Verify the refresh_token
+            # Verify the refresh_token if not OAuth
             refresh_token = request.cookies.get("refresh_token")
-
+            
             if not refresh_token:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -210,7 +225,6 @@ class SessionService:
             raise http_error
         
         except Exception as e:
-            print(f"Unexpected error during session_validation {user_data.id}: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to validate session",
