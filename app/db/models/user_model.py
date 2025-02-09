@@ -1,10 +1,15 @@
 from pydantic import ConfigDict
 from sqlmodel import Field, Relationship
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime, timezone
 
 from app.db.database import Base
 from app.schemas.user_schema import UserRole
+
+
+if TYPE_CHECKING:
+    from app.db.models.session_model import UserSession
+    from app.db.models.otp_model import OTP
 
 
 class User(Base, table=True):
@@ -62,7 +67,7 @@ class User(Base, table=True):
         description="User role (e.g., Admin, Subadmin, User)."
     )
     is_active: bool = Field(
-        default=True, nullable=False,
+        default=False, nullable=False,
         description="Indicates if the user account is active.",
     )
     is_blocked: bool = Field(
@@ -81,5 +86,19 @@ class User(Base, table=True):
         description="Timestamp when the user was last updated.",
     )
 
+    created_by: Optional[int] = Field(
+        None,
+        foreign_key="users.id",
+        nullable=True,
+        description="Id of the user who has created this user.",
+    )
+    updated_by: Optional[int] = Field(
+        None,
+        foreign_key="users.id",
+        nullable=True,
+        description="Id of the user who has updated this user.",
+    )
+
     # Relationships
-    user_sessions: Optional[List["UserSession"]] = Relationship(back_populates="user")
+    user_sessions: List["UserSession"] = Relationship(back_populates="user")    # One-to-Many Relationship (User → Sessions)
+    otps: List["OTP"] = Relationship(back_populates="user")     # One-to-Many Relationship (User → OTPs)

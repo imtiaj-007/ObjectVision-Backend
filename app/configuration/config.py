@@ -1,9 +1,11 @@
 import os
+from pydantic import EmailStr
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # env type
     ENVIORNMENT: str = "development"
+    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     # Frontend URLs
     FRONTEND_BASE_URL: str = "http://localhost:3000"
@@ -40,12 +42,20 @@ class Settings(BaseSettings):
 
     # Queue namings
     LOGGING_QUEUE: str = "logging"
-    TOKEN_QUEUE: str = "tokens"
-    EMAIL_QUEUE: str = "emails"
+    TOKEN_QUEUE: str = "token"
+    EMAIL_QUEUE: str = "email"
 
     # IP_API_BASE_URL (If you don't have this Create one for free from here [https://apiip.net/])
     IP_API_BASE_URL: str = "https://apiip.net/api/check"
     IP_API_ACCESS_KEY: str = "your_IP_api_access_key"
+
+    # Brevo Credentials
+    BREVO_API_URL: str = "https://api.brevo.com/v3/smtp/email"
+    BREVO_API_KEY: str = "your_brevo_api_key"
+    EMAIL_SENDER: EmailStr = "imtiaj.dev.kol@gmail.com"
+    EMAIL_SENDER_NAME: str ="SK Imtiaj Uddin"
+    COMPANY_NAME: str = "ObjectVision"
+    SUPPORT_EMAIL: EmailStr = "imtiaj.dev.kol@gmail.com"
 
     # Async SQLAlchemy Database URL
     @property

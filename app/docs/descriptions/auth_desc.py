@@ -17,6 +17,7 @@ Authenticates the user and manages the session. This endpoint allows users to lo
 ### Raises:
 - `HTTPException(400):` When the provided credentials are invalid
 - `HTTPException(401):` When the user is not authorized
+- `HTTPException(409):` When the user is logged in with another device
 - `HTTPException(500):` For unexpected server errors
 
 
@@ -54,9 +55,61 @@ Authenticates the user and manages the session. This endpoint allows users to lo
 Ensure that the user credentials are correct to avoid authentication errors.
 """
 
+SIGNUP_DESCRIPTION = (
+    description
+) = """
+Registers a new user and creates their account. This endpoint allows users to sign up by providing their email and password.
+
+### Parameters:
+- **user (UserCreate):** The user's sign-up data, including email and password
+- **db (AsyncSession):** Database session for creating the user
+
+### Returns:
+- **SignupResponse:** Contains the created user's information and a success message
+
+### Raises:
+- `HTTPException(400):` When the provided data is invalid (e.g., missing email or password)
+- `HTTPException(409):` When the email already exists in the system (conflict)
+- `HTTPException(500):` For unexpected server errors
+
+### Security:
+- Ensures the user does not already exist in the system
+- Safely stores the user's password using encryption techniques
+
+### Flow:
+1. Validates the user-provided data (email and password)
+2. Checks if the email is already in use by another user
+3. Creates a new user in the database with the provided credentials
+4. Returns the newly created user details
+
+### Example Success Response:
+```json
+{
+  "status": 1,
+  "message": "User registration successful",
+  "user_id": 1,
+  "email": "user@example.com"
+}
+```
+
+### Example Error Response:
+```json
+{
+    "detail": "Email and Password is required for sign-up"
+}
+```
+
+### This endpoint:
+1. Registers a new user by creating an account with the provided credentials
+2. Ensures the email is not already associated with an existing account
+3. Returns a success message along with the user's details
+
+Ensure the email is unique and password meets the required criteria to avoid errors during registration.
+"""
+
 GOOGLE_OAUTH_DESCRIPTION = (
     description
-)= """
+) = """
 Initiates the OAuth 2.0 flow by creating a state token and redirecting the user to Google's OAuth 2.0 login page.
 
 ### Parameters:

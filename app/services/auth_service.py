@@ -12,7 +12,7 @@ from app.services.session_service import SessionService
 from app.services.password_service import PasswordService
 from app.services.token_service import TokenService
 
-from app.schemas.user_schema import UserLogin, UserCreate, UserResponse
+from app.schemas.user_schema import UserLogin, UserCreate, UserData
 from app.schemas.token_schema import TokenResponse
 
 
@@ -23,7 +23,7 @@ class AuthService:
     async def get_user(
         db: AsyncSession = Depends(db_session_manager.get_db), 
         payload: Dict[str, Any] = None
-    ) -> UserResponse:
+    ) -> UserData:
         """Extract token and send User details"""
         if not payload:
             raise HTTPException(
@@ -105,7 +105,7 @@ class AuthService:
     async def verify_user_credentials(
         db: AsyncSession, 
         login_data: UserLogin
-    ) -> UserResponse:
+    ) -> UserData:
         """
         Authenticate the user by email and password.
         Includes exception handling and logging.
@@ -177,7 +177,7 @@ class AuthService:
     async def logout_user(
         db: AsyncSession,
         user_id: int,
-        refresh_token: str,
+        refresh_token: str = None,
         all_devices: bool = False
     ) -> None:
         """Logout user by invalidating sessions"""

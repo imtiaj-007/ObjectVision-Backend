@@ -11,7 +11,10 @@ from app.db.database import db_session_manager
 
 from app.services.auth_service import AuthService
 from app.services.session_service import SessionService
-from app.schemas.user_schema import UserLogin, LogoutResponse
+from app.services.user_service import UserService
+
+from app.schemas.user_schema import UserLogin, LogoutResponse, UserCreate
+from app.schemas.auth_schema import SignupResponse
 from app.schemas.token_schema import TokenResponse
 
 from app.docs.descriptions import auth_desc
@@ -32,20 +35,60 @@ async def user_login(
     request: Request,
     response: Response,
     login_data: UserLogin,
-    remember_me: bool = False,
-    new_device: bool = False,
     db: AsyncSession = Depends(db_session_manager.get_db),
 ) -> TokenResponse:
     """Authenticate user and manage session"""
 
     user = await AuthService.verify_user_credentials(db, login_data) 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is not verified, Please verify your account first."
+        )
     current_session = await SessionService.get_user_session(db, user.id)
 
-    # If user tries to login from new_device
-    if new_device and current_session:
-        await AuthService.logout_user(db, user.id, None, current_session.refresh_token, all_devices=True)
+    try:
+        # If user tries to login from new_device
+        if login_data.new_device and current_session:
+            await AuthService.logout_user(
+                db=db, 
+                user_id=user.id, 
+                refresh_token=current_session.refresh_token, 
+                all_devices=True
+            )
+            current_session = None
 
-    return await SessionService.handle_user_session(request,  response,  db,  user,  remember_me,  current_session)
+        return await SessionService.handle_user_session(request, response, db, user, login_data.remember_me, current_session)
+    
+    except HTTPException as http_error:
+        if http_error.status_code == status.HTTP_401_UNAUTHORIZED:
+            await AuthService.logout_user(db, user.id, None, True)
+        raise http_error
+    
+    except Exception as e:
+        raise
+
+
+@router.post(
+    "/signup", 
+    response_model=SignupResponse, 
+    status_code=status.HTTP_201_CREATED,
+    responses=auth_res.SIGNUP_RESPONSES,
+    summary="User Signup",
+    description=auth_desc.SIGNUP_DESCRIPTION
+)
+async def user_signup(
+    user: UserCreate, 
+    db: AsyncSession = Depends(db_session_manager.get_db)
+):
+    """Authenticate user and manage session"""
+
+    if not user.email or not user.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email and Password is required for sign-up"
+        )
+    return await UserService.create_user(db, user)
 
 
 @router.get(
@@ -148,6 +191,7 @@ async def google_oauth_callback(
         url=redirect_url,
         status_code=status.HTTP_302_FOUND
     )    
+
 
 @router.post(
     "/logout", 

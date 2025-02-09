@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+<table width="100%" cellpadding="0" cellspacing="0" style="text-align: center;">
+    <tr>
+        <td style="padding: 24px;">
+            <i class="fas fa-microscope" style="font-size: 48px; color: #3b82f6; margin-bottom: 24px;"></i>
+        </td>
+    </tr>
+    <tr>
+        <td style="color: #1a1a1a; font-size: 28px; font-weight: bold; padding-bottom: 16px;">
+            Welcome to ObjectVision!
+        </td>
+    </tr>
+    <tr>
+        <td style="color: #4b5563; font-size: 16px; line-height: 1.6; padding-bottom: 24px;">
+            Thank you for choosing ObjectVision. We're excited to help you unlock the power of computer vision
+            technology.
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 0 24px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td
+                        style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-radius: 12px; padding: 24px; margin-bottom: 16px; text-align: center;">
+                        <table style="max-width: 100%; margin: 0 auto;">
+                            <tr>
+                                <td style="text-align: center;">
+                                    <div class="container">
+                                        <div
+                                            style="display: flex; margin: auto 0; font-weight: 600; color: #0369a1; font-size: 20px; margin-bottom: 12px;">
+                                            <img width="24" height="24"
+                                                src="https://img.icons8.com/external-indigo-line-kalash/48/external-features-business-management-indigo-line-kalash.png"
+                                                alt="external-features-business-management-indigo-line-kalash"
+                                                style="margin-right: 5px;" />
+                                            Key Features
+                                        </div>
+                                        <ul
+                                            style="color: #334155; list-style-type: none; font-size: 16px; display: inline-block; text-align: left;">
+                                            <li style="display: flex; margin: auto 0; padding-bottom: 8px;">
+                                                <img width="16" height="16"
+                                                    src="https://img.icons8.com/fluency/48/instagram-check-mark.png"
+                                                    alt="instagram-check-mark"
+                                                    style="vertical-align:middle; margin-right: 8px;" />
+                                                Real-time object detection
+                                            </li>
+                                            <li style="display: flex; margin: auto 0; padding-bottom: 8px;">
+                                                <img width="16" height="16"
+                                                    src="https://img.icons8.com/fluency/48/instagram-check-mark.png"
+                                                    alt="instagram-check-mark"
+                                                    style="vertical-align: middle; margin-right: 8px;" />
+                                                Advanced image segmentation
+                                            </li>
+                                            <li style="display: flex; margin: auto 0; padding-bottom: 8px;">
+                                                <img width="16" height="16"
+                                                    src="https://img.icons8.com/fluency/48/instagram-check-mark.png"
+                                                    alt="instagram-check-mark"
+                                                    style="vertical-align: middle; margin-right: 8px;" />
+                                                Multi-object classification
+                                            </li>
+                                            <li style="display: flex; margin: auto 0; padding-bottom: 8px;">
+                                                <img width="16" height="16"
+                                                    src="https://img.icons8.com/fluency/48/instagram-check-mark.png"
+                                                    alt="instagram-check-mark"
+                                                    style="vertical-align: middle; margin-right: 8px;" />
+                                                Precision object tracking
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 24px;">
+            <a href="{{ dashboard_url }}"
+                style="display: inline-block; padding: 14px 32px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; transition: background-color 0.3s ease;">
+                Get Started Now
+            </a>
+        </td>
+    </tr>
+    <tr>
+        <td style="background-color: #f8fafc; border-radius: 8px; padding: 24px; margin-top: 5px;">
+            <div style="color: #0f172a; font-weight: 600; margin-bottom: 16px;">
+                Need Help?
+            </div>
+            <p style="color: #64748b; margin: 0;">
+                Check out our <a href="{{ docs_url }}" style="color: #3b82f6; text-decoration: none;">documentation</a>
+                or contact our <a href="{{ support_url }}" style="color: #3b82f6; text-decoration: none;">support
+                    team</a>.
+            </p>
+        </td>
+    </tr>
+</table>
+{% endblock %}

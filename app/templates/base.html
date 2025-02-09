@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ subject }}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+</head>
+
+<body style="font-family: 'Inter', sans-serif; background-color: #ffffff; padding: 20px; color: #2d3748;">
+    <table width="100%" cellpadding="0" cellspacing="0"
+        style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+        <tr style="border-radius: 24px 24px 0 0;">
+            <td style="background: linear-gradient(90deg, #000428, #004e92); padding: 32px 24px; text-align: center; border-radius: 24px 24px 0 0;">
+                {% block header %}
+                <table width="100%">
+                    <tr>
+                        <td style="text-align: center;">
+                            <div style="font-size: 36px; font-weight: bold; color: #3b82f6;">ObjectVision</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td
+                            style="color: #6ddcc0; font-size: 24px; font-weight: 600; font-style: oblique; padding-top: 15px;">
+                            Detect.. Analyze.. Innovate..
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ffffff; font-size: 16px; font-weight: 400; padding-top: 8px;">
+                            Unlock the power of ML with our Object Detection System<br />
+                            A Smart Object Detection project made by SK Imtiaj Uddin
+                        </td>
+                    </tr>
+                </table>
+                {% endblock %}
+            </td>
+        </tr>
+
+        <tr>
+            <td style="padding: 32px 24px; background-color: #f8fafc;">
+                {% block content %}{% endblock %}
+            </td>
+        </tr>
+
+        <tr style="border-radius: 0 0 24px 24px">
+            <td style="background-color: #e5eaef; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0; border-radius: 0 0 24px 24px;">
+                <table width="100%">
+                    <tr>
+                        <td style="text-align: center; padding-bottom: 16px;">
+                            <a href="https://x.com"
+                                style="color: #64748b; margin: 0 8px; text-decoration: none; font-size: 20px;">
+                                <img width="24" height="24" style="filter: grayscale(100%) brightness(50%); opacity: 0.8;" src="https://img.icons8.com/ios/50/twitterx--v1.png" alt="twitterx--v1"/>
+                            </a>
+                            <a href="https://instagram.com"
+                                style="color: #64748b; margin: 0 8px; text-decoration: none; font-size: 20px;">
+                                <img width="24" height="24" style="filter: grayscale(100%) brightness(50%); opacity: 0.8;" src="https://img.icons8.com/ios/50/instagram-new--v1.png" alt="instagram-new--v1"/>
+                            </a>
+                            <a href="https://linkedin.com"
+                                style="color: #64748b; margin: 0 8px; text-decoration: none; font-size: 20px;">
+                                <img width="24" height="24" style="filter: grayscale(100%) brightness(50%); opacity: 0.8;" src="https://img.icons8.com/ios-filled/50/linkedin.png" alt="linkedin"/>
+                            </a>
+                            <a href="https://github.com"
+                                style="color: #64748b; margin: 0 8px; text-decoration: none; font-size: 20px;">
+                                <img width="24" height="24" style="filter: grayscale(100%) brightness(50%); opacity: 0.8;" src="https://img.icons8.com/material-outlined/24/github.png" alt="github"/>
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: #64748b; font-size: 14px; padding-bottom: 8px;">
+                            © {{ year|default('2025') }} ObjectVision. All rights reserved.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: #64748b; font-size: 14px;">
+                            You received this email because you're registered with our service.
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

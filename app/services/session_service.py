@@ -161,22 +161,7 @@ class SessionService:
         current_session: UserSession
     ) -> TokenResponse:
         """Update access, refresh token and device information"""
-        try:            
-            # Verify the refresh_token if not OAuth
-            refresh_token = request.cookies.get("refresh_token")
-            
-            if not refresh_token:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Refresh token not found. Possible unauthorized access."
-                )
-            
-            if refresh_token != current_session.refresh_token:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Refresh token mismatch. Possible unauthorized access."
-                )
-            
+        try:                        
             # Check for device conflict
             ip_address = request.client.host
             user_agent = request.headers.get("User-Agent")

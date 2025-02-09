@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import db_session_manager
 from app.services.user_service import UserService
 from app.services.auth_service import AuthService
-from app.schemas.user_schema import UserCreate, UserUpdate, UserResponse, UserRole
+from app.schemas.user_schema import UserCreate, UserUpdate, UserRole, UserResponse
 
 from app.docs.descriptions import user_desc
 from app.docs.responses import user_res
@@ -24,7 +24,6 @@ def optional_auth(auth_service = Depends(AuthService.authenticate_user)):
     except HTTPException as e:
         if e.status_code == status.HTTP_401_UNAUTHORIZED:
             return None
-        raise
 
 
 @router.post(

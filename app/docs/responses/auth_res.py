@@ -23,6 +23,52 @@ LOGIN_RESPONSES = {
             "application/json": {"example": {"detail": "User  is not authorized"}}
         },
     },
+    409: {
+        "description": "Conflict - User logged in with another device",
+        "content": {
+            "application/json": {
+                "example": {"detail": "You are already logged in from another device."}
+            }
+        },
+    },
+    500: {
+        "description": "Internal Server Error",
+        "content": {
+            "application/json": {"example": {"detail": "An unexpected error occurred"}}
+        },
+    },
+}
+
+SIGNUP_RESPONSES = {
+    201: {
+        "description": "User created successfully",
+        "content": {
+            "application/json": {
+                "example": {
+                    "status": 1,
+                    "message": "User registration successful",
+                    "user_id": 1,
+                    "email": "user@example.com",
+                }
+            }
+        },
+    },
+    400: {
+        "description": "Bad Request",
+        "content": {
+            "application/json": {
+                "example": {"detail": "Email and Password are required for sign-up"}
+            }
+        },
+    },
+    409: {
+        "description": "Conflict - Email already exists",
+        "content": {
+            "application/json": {
+                "example": {"detail": "The email address is already registered"}
+            }
+        },
+    },
     500: {
         "description": "Internal Server Error",
         "content": {
