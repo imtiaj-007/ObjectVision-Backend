@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional
 from loguru import logger
+
 from app.configuration.config import settings
 
 
@@ -136,7 +137,8 @@ class LogConfig:
         """Generic logging method"""
         if level not in self.LOG_LEVELS:
             raise ValueError(f"Invalid log level: {level}")
-        logger.bind(**extra).log(level, message)
+        logger.bind(**extra).log(level, message)        
+
 
     # Convenience methods using generic _log method
     def info(self, message: str, **extra: Any) -> None:

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<table width="100%" cellpadding="0" cellspacing="0" style="text-align: center;">
+    <tr>
+        <td style="padding: 24px;">
+            <i class="fas fa-shield-alt" style="font-size: 48px; color: #4f46e5; margin-bottom: 24px;"></i>
+        </td>
+    </tr>
+    <tr>
+        <td style="color: #1a1a1a; font-size: 24px; font-weight: bold; padding-bottom: 16px;">
+            Your Verification Code
+        </td>
+    </tr>
+    <tr>
+        <td
+            style="background-color: #ebeef2; border-radius: 8px; padding: 24px; margin: 24px 0; font-family: 'Courier New', monospace; font-size: 32px; letter-spacing: 8px; font-weight: bold; color: #4f46e5;">
+            {{ otp }}
+        </td>
+    </tr>
+    <tr>
+        <td style="color: #4b5563; padding: 24px 0;">
+            This verification code will expire in <strong>10 minutes</strong>.<br>
+            Please do not share this code with anyone.
+        </td>
+    </tr>
+    <tr>
+        <td
+            style="background-color: #fff7ed; border-left: 4px solid #f97316; padding: 16px; text-align: left; border-radius: 4px;">
+            <p style="color: #9a3412; margin: 0;">
+                <strong>Security Tip:</strong> Our team will never ask for your OTP over phone or email.
+            </p>
+        </td>
+    </tr>
+    <tr>
+        <td style="color: #6b7280; font-size: 14px; padding-top: 24px;">
+            If you didn't request this code, please ignore this email or contact support if you're concerned.
+        </td>
+    </tr>
+</table>
+{% endblock %}

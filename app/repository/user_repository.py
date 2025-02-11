@@ -1,36 +1,57 @@
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import update
 
-from app.services.password_service import PasswordService
-from app.schemas.user_schema import UserCreate, UserRole
 from app.db.models.user_model import User
+from app.schemas.user_schema import UserUpdate
+from app.utils.logger import log
 
 
 class UserRepository:
     @staticmethod
-    async def create_user(db: AsyncSession, user: UserCreate) -> User:
-        """Create a new user in the database."""
-        hashed_password = PasswordService.get_password_hash(user.password)
+    async def create_user(db: AsyncSession, user_data: Dict[str, Any]) -> User:
+        """Create a new user in the database."""        
+        try:
+            # Validate user_data and store it
+            db_user = User(**user_data)
 
-        user_data: Dict[str, Any] = {
-            "email": user.email,
-            "password": hashed_password,
-            "role": UserRole.USER.value,
-            "is_active": True,
-            "is_blocked": False
-        }
+            db.add(db_user)
+            await db.commit()
+            await db.refresh(db_user)
+
+            return db_user
         
-        # Dynamically add optional fields if they exist
-        if hasattr(user, 'name') and user.name:
-            user_data["name"] = user.name
-        if hasattr(user, 'username') and user.username:
-            user_data["username"] = user.username
+        except SQLAlchemyError as db_err:
+            log.critical(f"Unexpected error in create_user: {db_err}")
+            raise 
+        
+        except Exception as e:
+            log.critical(f"Unexpected error in create_user: {e}")
+            raise 
 
-        # Create user instance with dynamic fields
-        db_user = User(**user_data)
 
-        db.add(db_user)
-        await db.commit()
-        await db.refresh(db_user)
+    @staticmethod
+    async def update_user(db: AsyncSession, user_id: int, payload: Dict[str, Any]) -> User:
+        """Update an existing user in the database."""     
+        try:
+            validated_data = UserUpdate.model_validate(payload)
+            data_dict = validated_data.model_dump(exclude_unset=True)
 
-        return db_user        
+            statement = (
+                update(User)
+                .where(User.id == user_id)
+                .values(**data_dict)
+            )
+            result = await db.execute(statement)
+            await db.commit()            
+
+            return result.rowcount
+        
+        except SQLAlchemyError as db_err:
+            log.critical(f"Unexpected error in update_user: {db_err}")
+            raise 
+        
+        except Exception as e:
+            log.error(f"Unexpected error in update_user: {e}")
+            raise   

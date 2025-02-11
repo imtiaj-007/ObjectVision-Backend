@@ -1,9 +1,11 @@
 import os
+from pydantic import EmailStr
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # env type
     ENVIORNMENT: str = "development"
+    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     # Frontend URLs
     FRONTEND_BASE_URL: str = "http://localhost:3000"
@@ -33,15 +35,34 @@ class Settings(BaseSettings):
     LOG_ROTATION: str = "00:00"
     LOG_RETENTION: str = "30 days"
 
+    # Redis Credentials
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}" or "redis://localhost:6379/0"
+
     # Celery credentials
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0" or "pyamqp://guest@localhost//"
-    CELERY_BACKEND_URL: str = "redis://localhost:6379/0" or "pyamqp://guest@localhost//"
+    CELERY_DB: int = 1
+    CELERY_BROKER_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/{CELERY_DB}" or "redis://localhost:6379/1"
+    CELERY_BACKEND_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/{CELERY_DB}" or "redis://localhost:6379/1"
     MAX_RETRIES: int = 3
 
     # Queue namings
     LOGGING_QUEUE: str = "logging"
-    TOKEN_QUEUE: str = "tokens"
-    EMAIL_QUEUE: str = "emails"
+    TOKEN_QUEUE: str = "token"
+    EMAIL_QUEUE: str = "email"
+
+    # IP_API_BASE_URL (If you don't have this Create one for free from here [https://apiip.net/])
+    IP_API_BASE_URL: str = "https://apiip.net/api/check"
+    IP_API_ACCESS_KEY: str = "your_IP_api_access_key"
+
+    # Brevo Credentials
+    BREVO_API_URL: str = "https://api.brevo.com/v3/smtp/email"
+    BREVO_API_KEY: str = "your_brevo_api_key"
+    EMAIL_SENDER: EmailStr = "imtiaj.dev.kol@gmail.com"
+    EMAIL_SENDER_NAME: str ="SK Imtiaj Uddin"
+    COMPANY_NAME: str = "ObjectVision"
+    SUPPORT_EMAIL: EmailStr = "imtiaj.dev.kol@gmail.com"
 
     # Async SQLAlchemy Database URL
     @property

@@ -31,9 +31,8 @@ class SessionRepository:
                 )
             ).order_by(UserSession.created_at.desc())
             result = await db.execute(query)
-            session_details = result.scalar_one_or_none()
             
-            return session_details
+            return result.scalar_one_or_none()
         
         except SQLAlchemyError as e:
             print(f"Database error retrieving session details: {e}")
@@ -162,17 +161,20 @@ class SessionRepository:
         """
         try:
             # Query the sessions that are not expired
-            result = await db.execute(select(UserSession).where(UserSession.is_expired == False))
+            result = await db.execute(select(UserSession).where(UserSession.is_active == True))
             sessions = result.scalars().all()
 
             # Loop through and update the expired sessions
+            counter = 0
             for user_session in sessions:
-                if user_session.expires_at and datetime.now(timezone.utc) > user_session.expires_at:
-                    user_session.is_expired = True
+                if user_session.expires_at and datetime.now(timezone.utc).replace(tzinfo=None) > user_session.expires_at:
+                    counter += 1
+                    user_session.is_active = False
                     db.add(user_session)
 
             # Commit the changes to the database
             await db.commit()
+            return counter
         
         except SQLAlchemyError as e:
             print(f"Database error on updating session expiry details: {e}")

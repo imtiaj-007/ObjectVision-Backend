@@ -1,6 +1,7 @@
 import traceback
 from fastapi import FastAPI, status, Request
 from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 from pydantic import ValidationError
@@ -15,11 +16,9 @@ class LogStorageError(Exception):
     """Custom exception for log storage failures"""
     pass
 
-
-class ValidationError(Exception):
-    """Custom exception for validation failures"""
+class CustomException(Exception):
+    "Custom exception for general usecases"
     pass
-
 
 # ExceptionHandler class
 class ExceptionHandler:
@@ -35,6 +34,7 @@ class ExceptionHandler:
         self.app.add_exception_handler(StarletteHTTPException, self.http_exception_handler)
         self.app.add_exception_handler(RequestValidationError, self.validation_exception_handler)
         self.app.add_exception_handler(ValidationError, self.custom_validation_exception_handler)
+        self.app.add_exception_handler(SQLAlchemyError, self.sqlalchemy_exception_handler)
         self.app.add_exception_handler(LogStorageError, self.log_storage_exception_handler)
         self.app.add_exception_handler(Exception, self.global_exception_handler)
 
@@ -87,9 +87,7 @@ class ExceptionHandler:
         except Exception as e:
             self.logger.error(f"Failed to log exception: {str(e)}")
 
-    async def http_exception_handler(
-        self, request: Request, exc: StarletteHTTPException
-    ) -> JSONResponse:
+    async def http_exception_handler(self, request: Request, exc: StarletteHTTPException) -> JSONResponse:
         msg = f"HTTP Exception: {exc.detail}"
         self.logger.error(message=msg, extra=exc)
         self.log_exception(
@@ -105,9 +103,7 @@ class ExceptionHandler:
             content={"message": exc.detail, "error": "HTTP Error"},
         )
 
-    async def validation_exception_handler(
-        self, request: Request, exc: RequestValidationError
-    ) -> JSONResponse:
+    async def validation_exception_handler(self, request: Request, exc: RequestValidationError) -> JSONResponse:
         msg = f"Validation Error: {exc.errors()}"
         self.logger.error(message=msg, extra=exc)
         self.log_exception(
@@ -127,9 +123,7 @@ class ExceptionHandler:
             },
         )
 
-    async def custom_validation_exception_handler(
-        self, request: Request, exc: ValidationError
-    ) -> JSONResponse:
+    async def custom_validation_exception_handler(self, request: Request, exc: ValidationError) -> JSONResponse:
         msg = f"Custom Validation Error: {str(exc)}"
         self.logger.error(message=msg, extra=exc)
         self.log_exception(
@@ -144,10 +138,24 @@ class ExceptionHandler:
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"message": str(exc), "error": "Custom Validation Error"},
         )
+    
+    async def sqlalchemy_exception_handler(self, request: Request, exc: SQLAlchemyError) -> JSONResponse:
+        msg = f"Database Error: {str(exc)}"
+        self.logger.critical(message=msg, extra=exc)
+        self.log_exception(
+            request=request,
+            exc=exc,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message=msg,
+            level=LogLevel.ERROR
+        )
+        
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"message": "A database error occurred", "error": "Database Error"},
+        )
 
-    async def log_storage_exception_handler(
-        self, request: Request, exc: LogStorageError
-    ) -> JSONResponse:
+    async def log_storage_exception_handler(self, request: Request, exc: LogStorageError) -> JSONResponse:
         # For log storage errors, we only use the logger since DB storage is failing
         self.logger.error(f"Log Storage Error: {str(exc)} - Path: {request.url.path}")
         
@@ -156,9 +164,7 @@ class ExceptionHandler:
             content={"message": "Log storage failure", "error": "Log Storage Error"},
         )
 
-    async def global_exception_handler(
-        self, request: Request, exc: Exception
-    ) -> JSONResponse:
+    async def global_exception_handler(self, request: Request, exc: Exception) -> JSONResponse:
         msg = f"Custom Validation Error: {str(exc)}"
         self.logger.error(message=msg, extra=exc)
         await self.log_exception(
