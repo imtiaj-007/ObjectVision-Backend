@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import text
+from sqlalchemy import text
 from dotenv import load_dotenv
 
 from app.middleware.request_logger import RequestLoggerMiddleware
@@ -13,7 +13,7 @@ from app.handlers.exception import ExceptionHandler
 from app.configuration.config import settings
 from app.utils.logger import log
 from app.docs import app_description
-from app.tasks.taskfiles.email_task import send_welcome_email_task
+
 
 # Load environment variables
 load_dotenv()
@@ -84,12 +84,10 @@ app.include_router(api_router, prefix='/api')
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(db_manager.get_db)):
     try:
-        # await db.execute(text("SELECT 1"))
-        send_welcome_email_task.delay({"email": "imtiaj.dev.kol@gmail.com", "name": "SK Imtiaj Uddin"})
+        await db.execute(text("SELECT 1"))        
         return {"status": "Database connection healthy"}
     
     except Exception as e:
-        print(f"Database health check failed: {e}")
         log.critical(f"Database health check failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

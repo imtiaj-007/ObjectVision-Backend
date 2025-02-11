@@ -9,7 +9,7 @@ from app.schemas.user_schema import UserData
 from app.schemas.otp_schema import OTPVerify
 
 from app.utils import helpers
-from app.tasks.taskfiles.email_task import send_otp_email_task
+from app.tasks.taskfiles.email_task import send_otp_email_task, send_welcome_email_task
 
 
 class OTPService:
@@ -69,6 +69,9 @@ class OTPService:
             "updated_by": user_id,
         }
         await UserRepository.update_user(db, user_id, payload)
+
+        recipient = {"email": email, "name": ""}
+        send_welcome_email_task.delay(recipient)
 
         return {"status": 1, "message": "OTP verified successfully."}
 

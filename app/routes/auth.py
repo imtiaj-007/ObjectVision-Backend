@@ -210,7 +210,8 @@ async def user_logout(
     """Logout user from current or all devices"""
     
     current_user = auth_obj["user"]
-    await AuthService.logout_user(db, current_user.id, refresh_token, all_devices)
+    current_token = auth_obj["token"]
+    await AuthService.logout_user(db, current_user.id, current_token, refresh_token, all_devices)
 
     # Clear cookies
     response.delete_cookie("refresh_token")

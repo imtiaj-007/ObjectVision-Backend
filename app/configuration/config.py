@@ -35,9 +35,16 @@ class Settings(BaseSettings):
     LOG_ROTATION: str = "00:00"
     LOG_RETENTION: str = "30 days"
 
+    # Redis Credentials
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}" or "redis://localhost:6379/0"
+
     # Celery credentials
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0" or "pyamqp://guest@localhost//"
-    CELERY_BACKEND_URL: str = "redis://localhost:6379/0" or "pyamqp://guest@localhost//"
+    CELERY_DB: int = 1
+    CELERY_BROKER_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/{CELERY_DB}" or "redis://localhost:6379/1"
+    CELERY_BACKEND_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/{CELERY_DB}" or "redis://localhost:6379/1"
     MAX_RETRIES: int = 3
 
     # Queue namings

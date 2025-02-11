@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repository.auth_repository import AuthRepository
 from app.repository.session_repository import SessionRepository
 from app.db.database import db_session_manager
+from app.utils.blacklist import is_token_blacklisted
+from app.tasks.taskfiles.token_task import blacklist_token_task
 
 from app.services.user_service import UserService
 from app.services.session_service import SessionService
@@ -64,10 +66,17 @@ class AuthService:
                     detail="Access token missing."
                 )
             
+            isBlacklisted = is_token_blacklisted(token)
+            if isBlacklisted:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, 
+                    detail="Invalid Access Token."
+                )
+
             payload = TokenService.verify_token(token, "access_token")
             user = await cls.get_user(payload=payload)                       
 
-            return { "user": user }
+            return { "user": user, "token": token }
         
         except HTTPException as http_error:
             if http_error.status_code == 401 and refresh_token:
@@ -83,6 +92,7 @@ class AuthService:
 
                     return {
                         "user": user,
+                        "token": token,
                         "new_access_token": {
                             "access_token": new_access_token,
                             "token_type": "Bearer",
@@ -177,12 +187,15 @@ class AuthService:
     async def logout_user(
         db: AsyncSession,
         user_id: int,
+        current_token: str = None,
         refresh_token: str = None,
         all_devices: bool = False
     ) -> None:
         """Logout user by invalidating sessions"""
         try:
             await SessionRepository.invalidate_sessions(db, user_id, refresh_token, all_devices)
+            if current_token:
+                blacklist_token_task.delay(current_token)
         
         except HTTPException as http_error:
             raise http_error
