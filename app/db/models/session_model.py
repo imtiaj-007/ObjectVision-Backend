@@ -2,10 +2,13 @@ import re
 from pydantic import ConfigDict
 from sqlmodel import Field, Relationship, JSON
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
-
+from typing import Optional, Dict, Any, TYPE_CHECKING
 from app.db.database import Base
 
+
+if TYPE_CHECKING:
+    from app.db.models.user_model import User
+    
 
 class UserSession(Base, table=True):
     model_config = ConfigDict(

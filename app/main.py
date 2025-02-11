@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import text
+from sqlalchemy import text
 from dotenv import load_dotenv
 
 from app.middleware.request_logger import RequestLoggerMiddleware
@@ -12,6 +12,8 @@ from app.scheduler.session_scheduler import lifespan as scheduler_lifespan
 from app.handlers.exception import ExceptionHandler
 from app.configuration.config import settings
 from app.utils.logger import log
+from app.docs import app_description
+
 
 # Load environment variables
 load_dotenv()
@@ -33,7 +35,6 @@ async def combined_lifespan(app: FastAPI):
         async with db_manager.lifespan(app):            
             # Start Session Scheduler
             async with scheduler_lifespan(app):
-                log.info("🔁 Session schedular startup complete - running application")
                 yield
     finally:
         log.info("✅ Shutdown complete")
@@ -42,7 +43,7 @@ async def combined_lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="Object Detection API",
-    description="ML-powered object detection service",
+    description=app_description,
     version="1.0.0",
     lifespan=combined_lifespan
 )
@@ -83,12 +84,11 @@ app.include_router(api_router, prefix='/api')
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(db_manager.get_db)):
     try:
-        await db.execute(text("SELECT 1"))
+        await db.execute(text("SELECT 1"))        
         return {"status": "Database connection healthy"}
     
     except Exception as e:
-        print(f"Database health check failed: {str(e)}")
-        log.critical(f"Database health check failed: {str(e)}")
+        log.critical(f"Database health check failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database connection failed"

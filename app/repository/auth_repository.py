@@ -8,7 +8,7 @@ from app.db.models.user_model import User
 
 class AuthRepository:
     @staticmethod
-    async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User] | None:
+    async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User]:
         """Retrieve a user by user_id."""
         try:
             result = await db.execute(select(User).where(User.id == user_id))
@@ -23,7 +23,7 @@ class AuthRepository:
             raise 
 
     @staticmethod
-    async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User] | None:
+    async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User]:
         """Retrieve a user by username."""
         try:
             result = await db.execute(select(User).where(User.username == username))
@@ -38,7 +38,7 @@ class AuthRepository:
             raise 
 
     @staticmethod
-    async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User] | None:
+    async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
         """Retrieve a user by email."""
         try:
             result = await db.execute(select(User).where(User.email == email))

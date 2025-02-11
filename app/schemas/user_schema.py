@@ -13,26 +13,18 @@ class UserRole(int, Enum):
 
 # Base User Model (Shared Fields)
 class UserBase(BaseModel):
-    username: Annotated[
+    name: Optional[Annotated[
         str, 
         StringConstraints(min_length=3, max_length=50)
-    ] = Field(
-        ...,
-        example="john_doe",
-        description="Unique username for the user (3-50 characters)."
+    ]] = Field(
+        None,
+        example="John Doe",
+        description="Actual Name of the user (3-50 characters)."
     )
     email: EmailStr = Field(
         ...,
         example="user@example.com",
         description="Valid email address of the user."
-    )
-    mobile: Optional[Annotated[
-        str,
-        StringConstraints(min_length=10, max_length=15)
-    ]] = Field(
-        None,
-        example="1234567890",
-        description="Mobile number of the user (optional, 10-15 digits)."
     )
 
     class Config:
@@ -55,16 +47,19 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     username: Optional[Annotated[
         str, 
+        StringConstraints(min_length=3, max_length=15)
+    ]] = Field(
+        None,
+        example="john_doe",
+        description="Unique username for the user (3-15 characters)."
+    )
+    name: Optional[Annotated[
+        str, 
         StringConstraints(min_length=3, max_length=50)
     ]] = Field(
         None,
-        example="new_username",
-        description="Updated username for the user (optional, 3-50 characters)."
-    )
-    email: Optional[EmailStr] = Field(
-        None,
-        example="new_email@example.com",
-        description="Updated email address of the user (optional)."
+        example="John Doe",
+        description="Actual Name of the user (3-50 characters)."
     )
     mobile: Optional[Annotated[
         str,
@@ -91,8 +86,8 @@ class UserUpdate(BaseModel):
     )
 
 
-# User Response (Output for API Responses)
-class UserResponse(UserBase):
+# User Data (For Internal use)
+class UserData(UserBase):
     id: int = Field(
         ...,
         example=1,
@@ -114,7 +109,7 @@ class UserResponse(UserBase):
         description="Role of the user (mapped to a predefined set of roles)."
     )
     created_at: datetime = Field(
-        ...,
+        None,
         example="2025-01-25T12:00:00Z",
         description="Timestamp when the user was created."
     )
@@ -127,6 +122,19 @@ class UserResponse(UserBase):
     class Config:
         from_attributes = True
 
+
+# User response upon user creation
+class UserResponse(BaseModel):
+    status: int = Field(
+        default=1,
+        example=1,
+        description="Status representing success/error."
+    )
+    message: str = Field(
+        ...,
+        example="User has been created successfully.",
+        description="Message for user creation."
+    )
 
 # Login Request (Input for Authentication)
 class UserLogin(BaseModel):
@@ -146,6 +154,8 @@ class UserLogin(BaseModel):
         example="securepassword",
         description="Password of the user for authentication."
     )
+    remember_me: bool = Field(False, description="Remember me option to keep the user Loggedin.")
+    new_device: bool = Field(False, description="New device field specifies if user is trying to login from new_device.")
 
 
 # Logout Response
