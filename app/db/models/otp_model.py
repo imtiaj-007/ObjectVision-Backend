@@ -1,5 +1,6 @@
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, Relationship
+from sqlalchemy import text
 from datetime import datetime, timezone
 from app.db.database import Base
 
@@ -10,6 +11,10 @@ if TYPE_CHECKING:
 
 class OTP(Base, table=True):
     __tablename__ = "otps"
+    __table_args__ = {
+        'schema': None,
+        'keep_existing': True
+    }
 
     id: int = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True, nullable=False)
@@ -40,14 +45,13 @@ class OTP(Base, table=True):
         index=True, nullable=False, description="When the OTP expires"
     )
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        sa_column_kwargs={"server_default": text("NOW() AT TIME ZONE 'UTC'")},
+        default_factory=lambda: datetime.now(timezone.utc),
         description="When the OTP was created",
     )
     updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
-        sa_column_kwargs={
-            "onupdate": lambda: datetime.now(timezone.utc).replace(tzinfo=None),
-        },
+        sa_column_kwargs={"onupdate": text("NOW() AT TIME ZONE 'UTC'")},
+        default_factory=lambda: datetime.now(timezone.utc),
         description="When the OTP was last updated",
     )
 

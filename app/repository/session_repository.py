@@ -95,7 +95,7 @@ class SessionRepository:
                 .where(UserSession.id == session.id)
                 .values(
                     access_token=new_access_token,
-                    updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
+                    updated_at=datetime.now(timezone.utc)
                 )
             )
             result = await db.execute(query)
@@ -137,7 +137,7 @@ class SessionRepository:
             )
             .values(
                 is_active=False,
-                updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
+                updated_at=datetime.now(timezone.utc)
             )
         )
         await db.execute(query)
@@ -167,7 +167,7 @@ class SessionRepository:
             # Loop through and update the expired sessions
             counter = 0
             for user_session in sessions:
-                if user_session.expires_at and datetime.now(timezone.utc).replace(tzinfo=None) > user_session.expires_at:
+                if user_session.expires_at and datetime.now(timezone.utc) > user_session.expires_at:
                     counter += 1
                     user_session.is_active = False
                     db.add(user_session)

@@ -34,7 +34,7 @@ class OTPRepository:
         Get the most recent active (not expired, not used) OTP for a user
         """
         try:
-            current_time = datetime.now(timezone.utc).replace(tzinfo=None)
+            current_time = datetime.now(timezone.utc)
             query = (
                 select(OTP)
                 .where(
@@ -63,7 +63,7 @@ class OTPRepository:
             OTP.user_id == user_id,
             OTP.otp == otp,
             OTP.is_used == False,
-            OTP.expires_at > datetime.now(timezone.utc).replace(tzinfo=None),
+            OTP.expires_at > datetime.now(timezone.utc),
         )
 
         try:
@@ -83,7 +83,7 @@ class OTPRepository:
         """Mark OTP as used"""
         try:
             otp_record.is_used = True
-            otp_record.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            otp_record.updated_at = datetime.now(timezone.utc)
             await db.commit()
             await db.refresh(otp_record)
             return otp_record
@@ -101,7 +101,7 @@ class OTPRepository:
         """Increment the attempt count for an OTP"""
         try:
             otp_record.attempt_count += 1
-            otp_record.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            otp_record.updated_at = datetime.now(timezone.utc)
             await db.commit()
             await db.refresh(otp_record)
             return otp_record
@@ -118,7 +118,7 @@ class OTPRepository:
     async def cleanup_expired_otps(db: AsyncSession) -> int:
         """Delete expired OTPs"""
         statement = select(OTP).where(
-            OTP.expires_at < datetime.now(timezone.utc).replace(tzinfo=None),
+            OTP.expires_at < datetime.now(timezone.utc),
             OTP.is_used == False,
         )
         try:

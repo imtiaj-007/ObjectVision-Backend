@@ -22,7 +22,7 @@ class OTPService:
     ):
         otp = helpers.generate_otp()
 
-        expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
+        expires_at = datetime.now(timezone.utc) + timedelta(
             minutes=expiry_minutes
         )
         otp_data: Dict[str, Any] = {
@@ -65,7 +65,7 @@ class OTPService:
 
         payload = {
             "is_active": True,
-            "updated_at": datetime.now(timezone.utc).replace(tzinfo=None),
+            "updated_at": datetime.now(timezone.utc),
             "updated_by": user_id,
         }
         await UserRepository.update_user(db, user_id, payload)
@@ -92,7 +92,7 @@ class OTPService:
         # If there's an active OTP, check if enough time has passed since last request
         if active_otp:
             time_since_last_otp = (
-                datetime.now(timezone.utc).replace(tzinfo=None) - active_otp.created_at
+                datetime.now(timezone.utc) - active_otp.created_at
             )
             if time_since_last_otp < timedelta(minutes=1):
                 raise HTTPException(
