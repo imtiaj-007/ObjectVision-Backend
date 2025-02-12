@@ -1,5 +1,6 @@
 from pydantic import ConfigDict
 from sqlmodel import Field, JSON
+from sqlalchemy import text
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
@@ -35,6 +36,10 @@ class Log(Base, table=True):
     )
 
     __tablename__ = "logs"
+    __table_args__ = {
+        'schema': None,
+        'keep_existing': True
+    }
 
     # Primary key and basic log information
     id: Optional[int] = Field(default=None, primary_key=True)    
@@ -77,7 +82,8 @@ class Log(Base, table=True):
         description="JSON object of additional details",
     )
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        sa_column_kwargs={"server_default": text("NOW() AT TIME ZONE 'UTC'")},
+        default_factory=lambda: datetime.now(timezone.utc),
         nullable=False,
         index=True
     )
