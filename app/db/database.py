@@ -12,7 +12,10 @@ from app.utils.logger import log
 
 
 # Base Model for alembic
-Base = SQLModel
+class Base(SQLModel):
+    """Base class for all models"""
+    pass
+
 
 class DatabaseConfig:
     def __init__(self, db_url: str):

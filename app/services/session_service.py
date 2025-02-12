@@ -127,7 +127,7 @@ class SessionService:
                 "ip_address": ip_address,
                 "device_type": device_info.get("device_type"),
                 "location": device_info.get("location"),
-                "expires_at": refresh_token_expiry.replace(tzinfo=None)
+                "expires_at": refresh_token_expiry
             }
             if oAuth_obj:
                 session_data.update(oAuth_obj)

@@ -1,5 +1,6 @@
 import re
 from pydantic import ConfigDict
+from sqlalchemy import text
 from sqlmodel import Field, Relationship, JSON
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, TYPE_CHECKING
@@ -32,6 +33,10 @@ class UserSession(Base, table=True):
     )
 
     __tablename__ = "user_sessions"
+    __table_args__ = {
+        'schema': None,
+        'keep_existing': True
+    }
 
     id: int = Field(default=None, primary_key=True, nullable=False)
     user_id: int = Field(foreign_key="users.id", index=True)
@@ -51,11 +56,13 @@ class UserSession(Base, table=True):
     )
 
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        sa_column_kwargs={"server_default": text("NOW() AT TIME ZONE 'UTC'")},
+        default_factory=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
     updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        sa_column_kwargs={"onupdate": text("NOW() AT TIME ZONE 'UTC'")},
+        default_factory=lambda: datetime.now(timezone.utc),
         nullable=True,
     )
 
