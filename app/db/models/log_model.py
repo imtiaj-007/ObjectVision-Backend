@@ -1,6 +1,6 @@
 from pydantic import ConfigDict
 from sqlmodel import Field, JSON
-from sqlalchemy import text
+from sqlalchemy import DateTime
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
@@ -82,8 +82,8 @@ class Log(Base, table=True):
         description="JSON object of additional details",
     )
     timestamp: datetime = Field(
-        sa_column_kwargs={"server_default": text("NOW() AT TIME ZONE 'UTC'")},
         default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
         nullable=False,
         index=True
     )

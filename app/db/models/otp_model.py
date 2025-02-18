@@ -1,9 +1,8 @@
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, Relationship
-from sqlalchemy import text
+from sqlalchemy import DateTime
 from datetime import datetime, timezone
 from app.db.database import Base
-
 
 if TYPE_CHECKING:
     from app.db.models.user_model import User
@@ -42,21 +41,19 @@ class OTP(Base, table=True):
         default=0, description="Number of verification attempts"
     )
     expires_at: datetime = Field(
-        index=True, nullable=False, description="When the OTP expires"
+        index=True, sa_type=DateTime(timezone=True), nullable=False, description="When the OTP expires"
     )
     created_at: datetime = Field(
-        sa_column_kwargs={"server_default": text("NOW() AT TIME ZONE 'UTC'")},
         default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
         description="When the OTP was created",
     )
     updated_at: datetime = Field(
-        sa_column_kwargs={"onupdate": text("NOW() AT TIME ZONE 'UTC'")},
         default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
         description="When the OTP was last updated",
     )
 
     # Relationships
     user: Optional["User"] = Relationship(back_populates="otps")
-
-    class Config:
-        from_attributes = True
+    
