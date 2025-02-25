@@ -1,6 +1,6 @@
 from pydantic import ConfigDict
+from sqlalchemy import DateTime
 from sqlmodel import Field, Relationship
-from sqlalchemy import text
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime, timezone
 
@@ -11,7 +11,8 @@ from app.schemas.user_schema import UserRole
 if TYPE_CHECKING:
     from app.db.models.session_model import UserSession
     from app.db.models.otp_model import OTP
-
+    from app.db.models.image_model import Image
+    
 
 class User(Base, table=True):
     """
@@ -81,14 +82,14 @@ class User(Base, table=True):
     )
 
     created_at: datetime = Field(
-        sa_column_kwargs={"server_default": text("NOW() AT TIME ZONE 'UTC'")},
         default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
         nullable=False,
         description="Timestamp when the user was created.",
     )
     updated_at: Optional[datetime] = Field(
-        sa_column_kwargs={"onupdate": text("NOW() AT TIME ZONE 'UTC'")},
         default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
         nullable=True,
         description="Timestamp when the user was last updated.",
     )
@@ -109,3 +110,4 @@ class User(Base, table=True):
     # Relationships
     user_sessions: List["UserSession"] = Relationship(back_populates="user")    # One-to-Many Relationship (User → Sessions)
     otps: List["OTP"] = Relationship(back_populates="user")     # One-to-Many Relationship (User → OTPs)
+    images: List["Image"] = Relationship(back_populates="user") # One-to-Many Relationship (User → Images)

@@ -11,6 +11,11 @@ __pycache__/
 logs/
 *.log
 
+# Media, models and model outputs
+ML_models/yolo11/*
+uploads/*
+output/*
+
 # Environment variables
 .env
 .env.development

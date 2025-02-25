@@ -3,4 +3,5 @@ from app.tasks.taskfiles import (
     log_task,
     email_task,
     token_task,
+    detection_task,
 )
