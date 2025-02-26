@@ -12,6 +12,8 @@ from app.configuration.config import settings
 from app.db.models.user_model import User
 from app.db.models.session_model import UserSession
 from app.db.models.otp_model import OTP
+from app.db.models.phone_number import PhoneNumber
+from app.db.models.address_model import Address
 from app.db.models.log_model import Log
 from app.db.models.image_model import Image
 from app.db.models.detection_model import Detection
@@ -38,7 +40,7 @@ metadata = MetaData(naming_convention=convention)
 
 # Import all models explicitly
 # This ensures all models are loaded and their tables are registered
-all_models = [User, UserSession, OTP, Log, Image, Detection, ProcessedImage]
+all_models = [User, UserSession, OTP, PhoneNumber, Address, Log, Image, Detection, ProcessedImage]
 
 # Set the target metadata for Alembic to work with
 target_metadata = Base.metadata

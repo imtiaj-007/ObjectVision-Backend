@@ -10,16 +10,14 @@ from app.schemas.token_schema import AccessToken, RefreshToken, TokenType
 
 
 class TokenService:
-    SECRET_KEY = settings.SECRET_KEY
-    ALGORITHM = "HS256"
+    SECRET_KEY: str = settings.SECRET_KEY
+    ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES = settings.TOKEN_EXPIRY or 30
     oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 
     @classmethod
     def create_access_token(cls, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """Create a JWT access token."""
-
         expire = datetime.now(timezone.utc) + (
             expires_delta or timedelta(minutes=cls.ACCESS_TOKEN_EXPIRE_MINUTES)
         )
@@ -32,7 +30,6 @@ class TokenService:
     @classmethod
     def create_refresh_token(cls, user: User, ip_address: str, user_agent: str, expiry: datetime) -> str:
         """Create a refresh token with device-specific info."""
-        
         if not user or not user.email or not user.id:
             raise ValueError("Invalid user data")
         
@@ -59,12 +56,12 @@ class TokenService:
         """
         try:
             token_data: Dict[str, Any] = {
-                "sub": user.username,
+                "sub": user.email,
                 "user_id": user.id,
                 "role": user.role,
             }
             token = cls.create_access_token(token_data)
-            return { "access_token": token, "token_type": "Bearer" }
+            return {"access_token": token, "token_type": "Bearer"}
 
         except HTTPException as http_error:
             raise http_error
@@ -76,6 +73,7 @@ class TokenService:
                 detail="Failed to generate access token",
             )
 
+    @classmethod
     def verify_token(cls, token: str, token_type: TokenType = "access"):
         """
         Verify and decode a JWT token with type-specific validation.
@@ -85,7 +83,7 @@ class TokenService:
             token_type: Either "access" or "refresh" to determine validation rules
         """
         try:
-            payload = jwt.decode(token, cls.SECRET_KEY, algorithms=[cls.ALGORITHM])
+            payload = jwt.decode(str(token), cls.SECRET_KEY, algorithms=[cls.ALGORITHM])
             
             if token_type == "refresh":
                 required_claims = {"sub", "user_id", "role", "ip_address", "user_agent", "exp"}
@@ -112,9 +110,9 @@ class TokenService:
                 detail=f"{token_type.title()} token has expired",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        except JWTError:
+        except JWTError as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials",
                 headers={"WWW-Authenticate": "Bearer"},
-            )    
+            )

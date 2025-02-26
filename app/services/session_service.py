@@ -138,10 +138,10 @@ class SessionService:
                 value=refresh_token,
                 httponly=True,
                 max_age=(7 if remember_me else 1) * 24 * 60 * 60,
-                secure=True,
-                samesite="Strict"
+                secure=settings.ENVIORNMENT == 'production',
+                samesite="Strict" if settings.ENVIORNMENT == 'production' else "Lax"
             )
-            return user_token
+            return { **user_token, "refresh_token": refresh_token }
         
         except HTTPException as http_error:
             raise http_error
@@ -169,7 +169,7 @@ class SessionService:
             if ip_address == current_session.ip_address and user_agent == current_session.user_agent:
                 new_token = TokenService.create_user_token(user_data)
                 await SessionRepository.update_access_token(db, current_session, new_token.get('access_token'))
-                return new_token
+                return { "refresh_token": current_session.refresh_token, **new_token }
             else:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
