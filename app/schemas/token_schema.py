@@ -1,7 +1,7 @@
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, StringConstraints
 from typing_extensions import Annotated
-from app.schemas.user_schema import UserRole
+from app.schemas.enums import UserRole
 
 
 # List of available token types
@@ -53,6 +53,14 @@ class TokenResponse(BaseModel):
         ...,
         example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
         description="JWT access token for the user."
+    )
+    refresh_token: Annotated[
+        str,
+        StringConstraints(min_length=20, max_length=500)
+    ] = Field(
+        ...,
+        example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        description="JWT refresh token for the user."
     )
     token_type: str = Field(
         ...,
