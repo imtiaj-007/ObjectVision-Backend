@@ -27,9 +27,18 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = 'your_google_oAuth_client_secret'
     GOOGLE_REDIRECT_URI: str = 'your_google_oAuth_redirect_url'
 
-    # API Settings
+    # AWS Credentials
+    AWS_ACCESS_KEY: str = "your_access_key"
+    AWS_SECRET_ACCESS_KEY: str = "your_secret_access_key"
+    AWS_REGION: str = "ap-south-1" # South Pacific Mumbai
+    AWS_BUCKET_NAME: str = "your_unique_bucket_name"
+
+    # Global Variables
     SECRET_KEY: str = 'your_secret_api_key'
     TOKEN_EXPIRY: int = 30
+    DEFAULT_PAGE: int = 1
+    DEFAULT_PAGE_LIMIT: int = 10
+    DEFAULT_OFFSET: int = 0
 
     # Log settings
     LOG_ROTATION: str = "00:00"
@@ -64,6 +73,11 @@ class Settings(BaseSettings):
     EMAIL_SENDER_NAME: str ="SK Imtiaj Uddin"
     COMPANY_NAME: str = "ObjectVision"
     SUPPORT_EMAIL: EmailStr = "imtiaj.dev.kol@gmail.com"
+
+    # Razorpay Credentials
+    RAZORPAY_KEY_ID: str = "your_razorpay_key_id"
+    RAZORPAY_KEY_SECRET: str = "your_razorpay_key_secret"
+    RAZORPAY_WEBHOOK_SECRET: str = "your_razorpay_webhook_secret"
 
     # Async SQLAlchemy Database URL
     @property

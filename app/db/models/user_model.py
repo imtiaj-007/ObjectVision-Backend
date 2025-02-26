@@ -9,6 +9,8 @@ from app.schemas.user_schema import UserRole
 
 
 if TYPE_CHECKING:
+    from app.db.models.phone_number import PhoneNumber
+    from app.db.models.address_model import Address
     from app.db.models.session_model import UserSession
     from app.db.models.otp_model import OTP
     from app.db.models.image_model import Image
@@ -26,7 +28,6 @@ class User(Base, table=True):
                 "username": "john_doe",
                 "name": "John Doe",
                 "email": "john.doe@example.com",
-                "mobile": "+1234567890",
                 "password": "hashed_password",
                 "role": 2,
                 "is_active": True,
@@ -58,10 +59,6 @@ class User(Base, table=True):
     email: str = Field(
         max_length=100, nullable=False, unique=True, index=True,
         description="User's email address (unique and required).",
-    )
-    mobile: Optional[str] = Field(
-        default=None, max_length=15, nullable=True,
-        description="User's mobile number, optional.",
     )
     password: str = Field(
         max_length=255, nullable=False,
@@ -108,6 +105,9 @@ class User(Base, table=True):
     )
 
     # Relationships
+    phone_numbers: List["PhoneNumber"] = Relationship(back_populates="user")    # One-to-Many Relationship (User → Phone Numbers)
+    addresses: List["Address"] = Relationship(back_populates="user")            # One-to-Many Relationship (User → Addresses)
     user_sessions: List["UserSession"] = Relationship(back_populates="user")    # One-to-Many Relationship (User → Sessions)
     otps: List["OTP"] = Relationship(back_populates="user")     # One-to-Many Relationship (User → OTPs)
     images: List["Image"] = Relationship(back_populates="user") # One-to-Many Relationship (User → Images)
+
