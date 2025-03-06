@@ -1,10 +1,10 @@
 from enum import Enum
 
-class UserRole(int, Enum):
+class UserRole(str, Enum):
     """ Enum representing different user types. """
-    ADMIN = 1
-    SUB_ADMIN = 2
-    USER = 3
+    ADMIN = "ADMIN"
+    SUB_ADMIN = "SUB_ADMIN"
+    USER = "USER"
 
 
 class LogLevel(str, Enum):
@@ -47,3 +47,37 @@ class CurrencyEnum(str, Enum):
     INR = "INR"
     USD = "USD"
     EUR = "EUR"
+
+
+class FeatureDataType(str, Enum):
+    """ Enum representing different data types of a Feature. """
+
+    STRING = "STRING"
+    NUMBER = "NUMBER"
+    BOOLEAN = "BOOLEAN"
+
+
+class SubscriptionPlans(str, Enum):
+    """ Enum representing different subscription plan types. """
+
+    BASIC = "BASIC"
+    SILVER = "SILVER"
+    GOLD = "GOLD"
+
+
+class PaymentStatus(str, Enum):
+    """ Enum representing different payment status. """
+
+    CREATED = "created"
+    AUTHORIZED = "authorized"
+    CAPTURED = "captured"    
+    REFUNDED = "refunded"    
+    FAILED = "failed"
+
+
+class ActivityTypeEnum(str, Enum):
+    """ Enum representing different Activity types. """
+
+    STORAGE_USAGE = "STORAGE_USAGE"
+    IMAGE_USAGE = "IMAGE_USAGE"
+    VIDEO_USAGE = "VIDEO_USAGE"

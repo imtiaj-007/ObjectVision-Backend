@@ -1,7 +1,27 @@
 from typing import Tuple, Dict, Any
+from datetime import datetime
 from pydantic_settings import BaseSettings
 from kombu import Queue
+import msgpack
 from app.configuration.config import settings
+
+
+def custom_encode(obj):
+    """Custom Msgpack encoder to handle datetime serialization"""
+    if isinstance(obj, datetime):
+        return {"__datetime__": obj.isoformat()}
+    return obj
+
+def custom_decode(obj):
+    """Custom Msgpack decoder to handle datetime deserialization"""
+    if "__datetime__" in obj:
+        return datetime.fromisoformat(obj["__datetime__"])
+    return obj
+
+custom_msgpack = {
+    "dumps": lambda obj: msgpack.packb(obj, default=custom_encode, use_bin_type=True),
+    "loads": lambda obj: msgpack.unpackb(obj, object_hook=custom_decode, raw=False),
+}
 
 
 class CelerySettings(BaseSettings):
@@ -14,13 +34,15 @@ class CelerySettings(BaseSettings):
     TOKEN_QUEUE: str = settings.TOKEN_QUEUE or "token"
     EMAIL_QUEUE: str = settings.EMAIL_QUEUE or "email"
     DETECTION_QUEUE: str = settings.DETECTION_QUEUE or "detection"
+    SUBSCRIPTION_QUEUE: str = settings.SUBSCRIPTION_QUEUE or "subscription"
 
     # Task Queues with Priorities
     task_queues: Tuple = (
         Queue(LOGGING_QUEUE,routing_key="logging.#",queue_arguments={"x-max-priority": 10},),
         Queue(TOKEN_QUEUE, routing_key="token.#", queue_arguments={"x-max-priority": 10}),
         Queue(EMAIL_QUEUE, routing_key="email.#", queue_arguments={"x-max-priority": 10}),
-        Queue(DETECTION_QUEUE,routing_key="detection.#",queue_arguments={"x-max-priority": 10},),
+        Queue(DETECTION_QUEUE,routing_key="detection.#",queue_arguments={"x-max-priority": 10}),
+        Queue(SUBSCRIPTION_QUEUE,routing_key="subscription.#",queue_arguments={"x-max-priority": 10}),
     )
 
     # Task Annotations with Rate Limits, Retries, and Priorities
@@ -49,7 +71,7 @@ class CelerySettings(BaseSettings):
             "retry_delay": 60,
             "priority": 7,
         },
-        "send_transaction_email_task": {
+        "send_subscription_email_task": {
             "rate_limit": "100/m",
             "max_retries": 3,
             "retry_delay": 60,
@@ -79,6 +101,12 @@ class CelerySettings(BaseSettings):
             "retry_delay": 30,
             "priority": 8,
         },
+        "store_order_task": {
+            "rate_limit": "100/m",
+            "max_retries": 3,
+            "retry_delay": 30,
+            "priority": 8,
+        },
     }
 
     @property
@@ -93,11 +121,9 @@ class CelerySettings(BaseSettings):
                 "tasks.token.*": {"queue": self.TOKEN_QUEUE},
                 "tasks.email.*": {"queue": self.EMAIL_QUEUE},
                 "tasks.detection.*": {"queue": self.DETECTION_QUEUE},
+                "tasks.subscription.*": {"queue": self.SUBSCRIPTION_QUEUE},
             },
-            "task_annotations": self.task_annotations,
-            "task_serializer": "msgpack",
-            "accept_content": ["json", "msgpack"],
-            "result_serializer": "json",
+            "task_annotations": self.task_annotations,        
             "timezone": "UTC",
             "enable_utc": True,
             "task_track_started": True,
@@ -109,6 +135,12 @@ class CelerySettings(BaseSettings):
             "broker_connection_retry_on_startup": True,
             "task_default_priority": 5,
             "worker_prefetch_multiplier": 1,
+            "task_serializer": "msgpack",
+            "event_serializer": "msgpack",
+            "result_serializer": "msgpack",
+            "serializer": "msgpack",
+            "accept_content": ["msgpack", "json"],
+            "result_accept_content": ["msgpack", "json"],
         }
 
 

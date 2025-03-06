@@ -7,6 +7,8 @@ from app.routes.detection import router as detection_router
 from app.routes.address import router as address_router
 from app.routes.phone_number import router as phone_number_router
 from app.routes.payment import router as payment_router
+from app.routes.subscription import router as subscription_router
+from app.routes.user_activity import router as user_activity_router
 
 # Create the main router
 router = APIRouter()
@@ -20,3 +22,5 @@ router.include_router(detection_router, prefix="/v1/detection", tags=["Detection
 router.include_router(address_router, prefix="/v1/address", tags=["Address"])
 router.include_router(phone_number_router, prefix="/v1/mobile", tags=["Phone Number"])
 router.include_router(payment_router, prefix="/v1/payment", tags=["Payment"])
+router.include_router(subscription_router, prefix="/v1/subscription", tags=["Subscription Management"])
+router.include_router(user_activity_router, prefix="/v1/user-activity", tags=["User Plan and Activities"])

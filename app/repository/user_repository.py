@@ -62,11 +62,6 @@ class UserRepository:
         """Get profile information of user using user_id, including address and phone numbers as JSON aggregates."""
         try:            
             # JSON templates for aggregation
-            user_fields = {
-                col.name: getattr(User, col.name)
-                for col in User.__table__.columns
-            }
-
             address_template = {
                 col.name: getattr(Address, col.name)
                 for col in Address.__table__.columns

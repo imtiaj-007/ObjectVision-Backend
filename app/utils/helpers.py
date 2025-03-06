@@ -1,5 +1,8 @@
 import random
 import string
+import json
+from datetime import datetime
+
 
 def generate_otp(otp_length: int = 6, is_alpha_numeric: bool = False) -> str:
     """
@@ -24,3 +27,13 @@ def generate_otp(otp_length: int = 6, is_alpha_numeric: bool = False) -> str:
 
     otp = ''.join(random.choices(characters, k=otp_length))
     return otp
+
+
+def serialize_datetime(obj):
+    """Helper function to convert datetime to string"""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    return obj
+
+def serialize_datetime_object(data_entity):
+    return json.loads(json.dumps(data_entity, default=serialize_datetime))
