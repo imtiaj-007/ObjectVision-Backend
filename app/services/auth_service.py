@@ -15,6 +15,7 @@ from app.services.password_service import PasswordService
 from app.services.token_service import TokenService
 
 from app.schemas.user_schema import UserLogin, UserCreate, UserData
+from app.db.models.user_model import User
 from app.schemas.token_schema import TokenResponse
 
 
@@ -23,7 +24,7 @@ security = HTTPBearer() # FastAPI provides built-in Bearer token extraction
 class AuthService:    
     @staticmethod
     async def get_user(
-        db: AsyncSession = Depends(db_session_manager.get_db), 
+        db: AsyncSession,
         payload: Dict[str, Any] = None
     ) -> UserData:
         """Extract token and send User details"""
@@ -33,11 +34,11 @@ class AuthService:
                 detail="Token is required"
             )
         
-        username: str = payload.get("sub")
+        email: str = payload.get("sub")
         user_id: int = payload.get("user_id")
         user_role: str = payload.get("role")
 
-        if user_id is None or username is None:
+        if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, 
                 detail="Invalid access_token."
@@ -54,6 +55,7 @@ class AuthService:
     @classmethod
     async def authenticate_user(
         cls, 
+        db: AsyncSession = Depends(db_session_manager.get_db),
         auth: HTTPAuthorizationCredentials = Depends(security),
         refresh_token: Annotated[str | None, Cookie()] = None
     ) -> Dict[str, Any]:
@@ -72,18 +74,17 @@ class AuthService:
                     status_code=status.HTTP_401_UNAUTHORIZED, 
                     detail="Invalid Access Token."
                 )
-
+            
             payload = TokenService.verify_token(token, "access_token")
-            user = await cls.get_user(payload=payload)                       
+            user = await cls.get_user(db, payload)                       
 
             return { "user": user, "token": token }
         
         except HTTPException as http_error:
-            if http_error.status_code == 401 and refresh_token:
-                # Access token expired, check refresh token
+            if http_error.status_code == status.HTTP_401_UNAUTHORIZED and refresh_token:
                 try:
                     payload = TokenService.verify_token(refresh_token, "refresh_token")
-                    user = await cls.get_user(payload=payload)
+                    user = await cls.get_user(db, payload=payload)
                     new_access_token = TokenService.create_access_token({
                         "sub": user.username,
                         "user_id": user.id,
@@ -115,7 +116,7 @@ class AuthService:
     async def verify_user_credentials(
         db: AsyncSession, 
         login_data: UserLogin
-    ) -> UserData:
+    ) -> User:
         """
         Authenticate the user by email and password.
         Includes exception handling and logging.
@@ -131,7 +132,30 @@ class AuthService:
                 detail="Invalid credentials. Please check your email and password.",
             )
         return user
+        
+    @staticmethod
+    async def regenerate_access_token(
+        db: AsyncSession,
+        refresh_token: str
+    ) -> User:
+        """
+        Authenticate the user by email and password.
+        Includes exception handling and logging.
+        """
+        # Validate refresh token and user
+        payload = await TokenService.verify_token(refresh_token, "refresh_token")
+        user = await AuthService.get_user(db, payload)
 
+        # Ensure the token payload matches the user's data
+        email, user_id = payload["sub"], payload["user_id"]
+        if user.email != email or user.id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token, please log in to continue.",
+            )
+
+        new_token = await TokenService.create_access_token(user)                
+        return new_token
     
     @staticmethod
     async def handle_google_oauth(

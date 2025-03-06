@@ -18,6 +18,9 @@ from app.db.models.log_model import Log
 from app.db.models.image_model import Image
 from app.db.models.detection_model import Detection
 from app.db.models.processed_image_model import ProcessedImage
+from app.db.models.subscription import Features, FeatureGroup, SubscriptionPlan
+from app.db.models.order_model import Order
+from app.db.models.user_activity_model import ActiveUserPlans, UserActivity
 
 
 # Get the configuration from alembic.ini
@@ -40,7 +43,12 @@ metadata = MetaData(naming_convention=convention)
 
 # Import all models explicitly
 # This ensures all models are loaded and their tables are registered
-all_models = [User, UserSession, OTP, PhoneNumber, Address, Log, Image, Detection, ProcessedImage]
+all_models = [
+    User, UserSession, OTP, PhoneNumber, Address, 
+    Log, Image, Detection, ProcessedImage,
+    Features, FeatureGroup, SubscriptionPlan,
+    Order, ActiveUserPlans, UserActivity
+]
 
 # Set the target metadata for Alembic to work with
 target_metadata = Base.metadata
