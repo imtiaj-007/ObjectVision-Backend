@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from app.db.models.session_model import UserSession
     from app.db.models.otp_model import OTP
     from app.db.models.image_model import Image
+    from app.db.models.order_model import Order
+    from app.db.models.user_activity_model import ActiveUserPlans
     
 
 class User(Base, table=True):
@@ -65,7 +67,7 @@ class User(Base, table=True):
         description="Hashed password for authentication.",
     )
 
-    role: int = Field(
+    role: UserRole = Field(
         default=UserRole.USER, nullable=False, 
         description="User role (e.g., Admin, Subadmin, User)."
     )
@@ -110,4 +112,6 @@ class User(Base, table=True):
     user_sessions: List["UserSession"] = Relationship(back_populates="user")    # One-to-Many Relationship (User → Sessions)
     otps: List["OTP"] = Relationship(back_populates="user")     # One-to-Many Relationship (User → OTPs)
     images: List["Image"] = Relationship(back_populates="user") # One-to-Many Relationship (User → Images)
+    orders: List["Order"] = Relationship(back_populates="user") # One-to-Many Relationship (User → Orders)
+    active_user_plans: List["ActiveUserPlans"] = Relationship(back_populates="user")  # One-to-Many Relationship (User → ActivePlans)
 

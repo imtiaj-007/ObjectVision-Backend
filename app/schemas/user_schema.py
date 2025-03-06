@@ -63,7 +63,7 @@ class UserUpdate(BaseModel):
     )
     role: Optional[UserRole] = Field(
         None,
-        example=UserRole.USER.value,
+        example=UserRole.USER,
         description="Role of the user (optional, mapped to a predefined set of roles).",
     )
     is_active: Optional[bool] = Field(
@@ -95,8 +95,8 @@ class UserResponse(UserBase):
         default=False, example=False, description="Indicates if the user is blocked."
     )
     role: UserRole = Field(
-        default=UserRole.USER.value,
-        example=UserRole.USER.value,
+        default=UserRole.USER,
+        example=UserRole.USER,
         description="Role of the user (mapped to a predefined set of roles).",
     )
 
@@ -130,11 +130,6 @@ class UserProfile(BaseModel):
     phone_numbers: List[PhoneNumberResponse] = Field(
         default_factory=list, description="List of user phone numbers."
     )
-    # TODO: Subscription module needs to be implemented
-    # subscription: Dict[str, Any] = Field(
-    #     None,
-    #     description="Active subscription details."
-    # )
 
 
 # Login Request (Input for Authentication)

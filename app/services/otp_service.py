@@ -1,8 +1,10 @@
+import json
 from typing import Any, Dict
 from datetime import datetime, timedelta, timezone
 from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import HTTPException, status
 
+from app.services.subscription_service import SubscriptionService
 from app.repository.user_repository import UserRepository
 from app.repository.otp_repository import OTPRepository
 from app.schemas.user_schema import UserData
@@ -10,6 +12,7 @@ from app.schemas.otp_schema import OTPVerify
 
 from app.utils import helpers
 from app.tasks.taskfiles.email_task import send_otp_email_task, send_welcome_email_task
+from app.tasks.taskfiles.subscription_task import map_purchased_plan_with_user_task
 
 
 class OTPService:
@@ -70,8 +73,16 @@ class OTPService:
         }
         await UserRepository.update_user(db, user_id, payload)
 
+        # Send Welcome email to the user
         recipient = {"email": email, "name": ""}
         send_welcome_email_task.delay(recipient)
+
+        # Map Free subscription plan with the user
+        basic_plan = await SubscriptionService.get_subscription_plan_with_features(db, 2)
+        plan_details_dict = helpers.serialize_datetime_object(basic_plan)
+        map_purchased_plan_with_user_task.delay(
+            user_id=user_id, plan_data=plan_details_dict, order_data=None
+        )
 
         return {"status": 1, "message": "OTP verified successfully."}
 

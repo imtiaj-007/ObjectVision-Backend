@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     TOKEN_QUEUE: str = "token"
     EMAIL_QUEUE: str = "email"
     DETECTION_QUEUE: str = "detection"
+    SUBSCRIPTION_QUEUE: str = "subscription"
 
     # IP_API_BASE_URL (If you don't have this Create one for free from here [https://apiip.net/])
     IP_API_BASE_URL: str = "https://apiip.net/api/check"

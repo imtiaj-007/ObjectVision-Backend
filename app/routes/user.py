@@ -105,12 +105,10 @@ async def delete_user(
 
 @router.get("/get-profile")
 async def get_user(
-    request: Request,
     db: AsyncSession = Depends(db_session_manager.get_db),
     auth_obj: Optional[Dict[str, Any]] = Depends(AuthService.authenticate_user),
 ) -> Optional[UserProfile]:
     """Retrieves the authenticated user's information."""
-    print("Refresh token: ", request.cookies.get('refresh_token'))
     if not auth_obj:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"

@@ -1,4 +1,5 @@
 from celery import Task
+import asyncio
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from app.configuration.config import settings
@@ -55,6 +56,20 @@ class AsyncDatabaseTask(Task):
         finally:
             await session.close()
     
+    def run_async(coro):
+        """Safely run an async coroutine in a sync context."""
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            if loop.is_running():
+                loop.close()
+
     async def cleanup(self):
         """Cleanup database connections"""
         if self._engine:

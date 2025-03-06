@@ -21,7 +21,7 @@ class AccessToken(BaseModel):
     )
     role: Optional[int] = Field(
         None,
-        example=UserRole.USER.value,
+        example=UserRole.USER,
         description="Role of the user (stored in the token)."
     )
     exp: Optional[int] = Field(
