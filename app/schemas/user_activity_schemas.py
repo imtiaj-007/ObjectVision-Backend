@@ -11,6 +11,7 @@ class ActiveUserPlanBase(BaseModel):
     plan_name: SubscriptionPlans = Field(..., description="Subscription plan name")
     description: Optional[str] = Field(None, description="Plan description")
     is_active: bool = Field(False, description="Indicates if the plan is active")
+    is_expired: bool = Field(False, description="Indicates if the plan is expired")
     expiry_date: Optional[datetime] = Field(
         None, description="Expiration date of the plan"
     )
@@ -26,6 +27,7 @@ class ActiveUserPlanUpdate(BaseModel):
     plan_name: Optional[SubscriptionPlans] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    is_expired: Optional[bool] = None
     expiry_date: Optional[datetime] = None
     backup_till: Optional[datetime] = None
 

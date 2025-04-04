@@ -6,8 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repository.auth_repository import AuthRepository
 from app.repository.session_repository import SessionRepository
 from app.db.database import db_session_manager
-from app.utils.blacklist import is_token_blacklisted
-from app.tasks.taskfiles.token_task import blacklist_token_task
+from cache.token_blacklisting import is_token_blacklisted, add_token_to_blacklist
 
 from app.services.user_service import UserService
 from app.services.session_service import SessionService
@@ -219,7 +218,7 @@ class AuthService:
         try:
             await SessionRepository.invalidate_sessions(db, user_id, refresh_token, all_devices)
             if current_token:
-                blacklist_token_task.delay(current_token)
+                add_token_to_blacklist(current_token, 900)
         
         except HTTPException as http_error:
             raise http_error

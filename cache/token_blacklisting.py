@@ -1,14 +1,7 @@
-import redis
-from app.configuration.config import settings
+from app.configuration.redis_client import get_redis_instance
 
 # Connect to Redis
-redis_client = redis.StrictRedis(
-    host=settings.REDIS_HOST, 
-    port=settings.REDIS_PORT, 
-    db=settings.REDIS_DB, 
-    decode_responses=True
-)
-
+redis_client = get_redis_instance()
 
 def add_token_to_blacklist(token: str, expiry: int):
     """

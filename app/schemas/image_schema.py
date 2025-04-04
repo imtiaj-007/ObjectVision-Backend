@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
-from app.schemas.detection_schema import ModelTypeEnum
+from app.schemas.enums import ModelTypeEnum
 
 
 class ImageMetadata(BaseModel):
@@ -35,10 +35,19 @@ class UpdateImage(BaseModel):
     updated_at: Optional[datetime] = Field(
         None, description="Timestamp when image was last updated"
     )
-    processed: bool = Field(
+    processed: Optional[bool] = Field(
         default=False, description="Indicates if YOLO processing has been applied"
     )
 
+
+class UpdateProcessedImage(BaseModel):
+    cloud_processed_path: Optional[str] = Field(
+        None, description="Path to the processed image in aws_s3"
+    )
+    updated_at: Optional[datetime] = Field(
+        None, description="Timestamp when image was last updated"
+    )
+    
 
 class ProcessedImageData(BaseModel):
     original_image_id: int = Field(
@@ -51,7 +60,10 @@ class ProcessedImageData(BaseModel):
         ..., description="Processing type (detection, segmentation, classification etc.)",
     )
 
-# Combined Image Response Model
+
+# Combined Image Response Model    
 class ImageResponse(CreateImage, UpdateImage):
     id: int = Field(..., description="Unique ID of image stored in DB")
-    uploaded_at: datetime = Field(None, description="Timestamp when image was uploaded")
+    uploaded_at: Optional[datetime] = Field(
+        None, description="Timestamp when image was uploaded"
+    )

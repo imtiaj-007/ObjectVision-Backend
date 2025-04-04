@@ -1,51 +1,77 @@
 import os
+import asyncio
 import aiofiles
-from PIL import Image
 from io import BytesIO
+from pathlib import Path
+from PIL import Image, ImageFile
 from datetime import datetime
-from typing import Optional, Dict, List
-from fastapi import UploadFile, HTTPException
+from typing import Dict, List, Any, Union, Optional
+from fastapi import UploadFile, HTTPException, status, WebSocket
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.configuration.config import settings
+from app.services.yolo_service import YOLOProcessor, config
+from app.schemas.enums import WebSocketMessageType, ModelTypeEnum
+from app.schemas.user_schema import UserData
+from app.schemas.detection_schema import DetectionRequest
+from app.schemas.image_schema import ImageMetadata, CreateImage 
+from app.repository.detection_repository import DetectionRepository
+
 from app.tasks.taskfiles.detection_task import store_image_data_task
 from app.helpers.file_types import FileConfig, FileType
 from app.utils.logger import log
 
-from app.services.yolo_service import YOLOProcessor, config
-from app.schemas.image_schema import (
-    ImageMetadata,
-    CreateImage,
-    UpdateImage,
-)
 
+ImageFile.LOAD_TRUNCATED_IMAGES = True 
 
 class DetectionService:
     services: List[str] = ["detection", "segmentation", "classification", "pose"]
 
     @classmethod
-    async def save_file_locally(cls, file: UploadFile, file_path: str) -> bool:
-        """Save uploaded file to local storage."""
+    async def save_file_locally(cls, file: UploadFile, file_path: Union[Path, str]) -> bool:
+        """Save uploaded file to local storage after converting to WebP and compressing."""
         try:
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
+            # Read the file content
+            await file.seek(0)
+            content = await file.read()
+
+            with Image.open(BytesIO(content)) as image:
+                if image.mode in ("RGBA", "P"):
+                    image = image.convert("RGB")
+
+                # Determine compression quality
+                quality = 75 if file.size < 1024 * 1024 else 50
+
+                # Convert to WebP with compression
+                webp_buffer = BytesIO()
+                image.save(webp_buffer, format="WEBP", quality=quality)
+                webp_buffer.seek(0)
+
+            # Save the compressed WebP image to the specified file path
             async with aiofiles.open(file_path, "wb") as buffer:
-                await file.seek(0)
-                content = await file.read()
-                await buffer.write(content)
+                await buffer.write(webp_buffer.getvalue())
+
             return True
+
         except Exception as e:
-            log.error(f"Error saving file locally: {e}")
+            log.error(f"Error saving file locally: {str(e)}")
             return False
 
     @classmethod
-    async def get_image_properties(cls, file: UploadFile):
-        """Get image properties while properly handling file pointer position."""
+    async def get_image_properties(cls, file_path: str):
+        """Get image properties from the stored file on the server."""
         try:
-            await file.seek(0)
-            contents = await file.read()
+            file_path = Path(file_path)
+            if not file_path.exists():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, 
+                    detail="Image file not found"
+                )
 
-            image_buffer = BytesIO(contents)
-            image = Image.open(image_buffer)
+            async with aiofiles.open(file_path, "rb") as buffer:
+                content = await buffer.read()
+                image = Image.open(BytesIO(content))
 
             properties = {
                 "width": image.width,
@@ -54,47 +80,151 @@ class DetectionService:
                 "mode": image.mode,
             }
 
-            await file.seek(0)
             return properties
 
         except Exception as e:
-            log.error(f"Error getting image properties: {e}")
-            raise HTTPException(status_code=400, detail="Invalid image file or format")
+            log.error(f"Error getting image properties: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Invalid image file or format"
+            )
+
+    @staticmethod
+    async def get_detection_results(
+        db: AsyncSession, page: int, limit: int, user_id: int, image_id: Optional[int]
+    ) -> Dict[str, Any]:
+        try:
+            offset = (page - 1) * limit
+            result = await DetectionRepository.get_detection_details(
+                db=db, limit=limit, offset=offset, user_id=user_id, image_id=image_id
+            )                        
+            return result
+
+        except Exception as e:
+            log.error(f"Unexpected error in get_detection_results service: {str(e)}")
+            raise
 
     @classmethod
-    async def image_detection(
+    async def image_detection_ws(
         cls,
         file: UploadFile,
-        model_size: str = "small",
-        requested_services: Optional[List[str]] = None,
-    ) -> Dict:
+        request_data: DetectionRequest,
+        user_data: UserData,        
+        websocket: WebSocket,
+        task_id: str
+    ) -> Dict[str, Any]:
         """
-        Process image through multiple detection services and store results.
-
+        Process image through multiple detection services and stream results via WebSocket.
+    
         Args:
             file: Uploaded image file
-            requested_services: Set of specific services to run (runs all if None)
-            db: Database session
-
+            request_data: Detection request parameters
+            user_data: User data
+            websocket: WebSocket connection
+            task_id: Unique task identifier
+            
         Returns:
-            Dict containing processing results and S3 URL
+            Dict containing final processing results
         """
         try:
             # Validate file
             file_details = FileConfig.validate_file(
-                filename=file.filename, file_type=FileType.IMAGE, file_size=file.size
+                filename=file.filename, 
+                file_type=FileType.IMAGE, 
+                file_size=file.size
             )
 
             # Generate unique filename and path
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            unique_filename = f"{timestamp}_{file_details['filename']}"
-            file_path = os.path.join(
-                settings.BASE_DIR,
-                "uploads\images",
-                unique_filename,
-            )
+            filename_without_extension = os.path.splitext(file_details['filename'])[0]
+            unique_filename = f"{timestamp}_{filename_without_extension}.webp"
 
-            img_properties = await cls.get_image_properties(file)
+            file_path = Path(f"uploads/images/{unique_filename}")
+
+            # Send progress update
+            await websocket.send_json({
+                "type": WebSocketMessageType.PROGRESS,
+                "task_id": task_id,
+                "progress": 10,
+                "message": "Saving and preparing uploaded file"
+            })
+
+            # Save file locally
+            if not await cls.save_file_locally(file, file_path):
+                await websocket.send_json({
+                    "type": WebSocketMessageType.ERROR,
+                    "task_id": task_id,
+                    "message": "Failed to save file locally"
+                })
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                    detail="Failed to save file locally"
+                )
+
+            # Send progress update
+            await websocket.send_json({
+                "type": WebSocketMessageType.PROGRESS,
+                "task_id": task_id,
+                "progress": 20,
+                "message": "File saved, initializing detection models"
+            })
+
+            # Process image through requested or all services
+            services_to_run: List[str] = request_data.requested_services or cls.services
+            processor = YOLOProcessor(
+                config, 
+                model_size=request_data.model_size, 
+                model_types=services_to_run
+            )
+            results = {}
+            output_paths: List[str] = []
+
+            # Calculate progress increments based on number of services
+            progress_per_service = 60 / len(services_to_run) 
+            current_progress = 20
+
+            await websocket.send_json({
+                "type": WebSocketMessageType.PROGRESS,
+                "task_id": task_id,
+                "progress": current_progress,
+                "message": f"Models initialized, processing with {', '.join(services_to_run)} services"
+            })
+
+            for i, service in enumerate(services_to_run):
+                if service not in cls.services:
+                    continue
+
+                # Send progress update - starting this service
+                current_progress += progress_per_service / 2
+                await websocket.send_json({
+                    "type": WebSocketMessageType.PROGRESS,
+                    "task_id": task_id,
+                    "progress": current_progress,
+                    "message": f"Processing with {service} model"
+                })
+
+                # Process image with this service
+                service_result = await asyncio.to_thread(
+                    processor.process_image,
+                    file_name=unique_filename, 
+                    image_path=file_path, 
+                    model_type=service
+                )
+                results[ModelTypeEnum(service.upper())] = service_result
+                output_paths.append(service_result.get('output_path'))
+
+                # Update progress for completed service
+                current_progress += progress_per_service / 2
+
+            img_properties = await cls.get_image_properties(file_path)
+
+            # Send progress update
+            await websocket.send_json({
+                "type": WebSocketMessageType.PROGRESS,
+                "task_id": task_id,
+                "progress": 80,
+                "message": "Processing complete, storing results"
+            })
 
             # Construct metadata
             img_metadata = ImageMetadata(
@@ -106,44 +236,48 @@ class DetectionService:
                 height=img_properties["height"],
             )
 
-            # Save file locally
-            if not await cls.save_file_locally(file, file_path):
-                raise HTTPException(
-                    status_code=500, detail="Failed to save file locally"
-                )
-
-            # Process image through requested or all services
-            services_to_run = requested_services or cls.services
-            processor = YOLOProcessor(
-                config, model_size=model_size, model_types=services_to_run
-            )
-            results = {}
-
-            for service in services_to_run:
-                if service not in cls.services:
-                    continue
-                results[service] = processor.process_image(
-                    file_name=unique_filename, image_path=file_path, model_type=service
-                )
-
             # Store image_details, detection_results and processed_images in DB and AWS_S3
             img_data = CreateImage(
                 filename=unique_filename,
                 image_metadata=img_metadata,
-                local_file_path=file_path,
+                local_file_path=str(file_path),
             )
 
+            await websocket.send_json({
+                "type": WebSocketMessageType.PROGRESS,
+                "task_id": task_id,
+                "progress": 90,
+                "message": "Saving results to database and cloud storage"
+            })
+
             store_image_data_task.delay(
+                user_id=user_data.id,
+                username=user_data.username,
                 image_data=img_data.model_dump(),
                 services=services_to_run,
                 detection_data=results,
             )
 
-            return {"filename": unique_filename, "results": results}
+            data = { **img_data.model_dump(), "results": results }
 
+            await websocket.send_json({
+                "type": WebSocketMessageType.RESULT,
+                "task_id": task_id,
+                "status": "completed",
+                "progress": 100,
+                "message": "Processing complete",
+                "data": data
+            })
+            return data
+        
         except Exception as e:
-            log.error(f"Unexpected error occurred in image detection: {e}")
+            log.error(f"Unexpected error occurred in image detection: {str(e)}")
+            await websocket.send_json({
+                "type": WebSocketMessageType.ERROR,
+                "task_id": task_id,
+                "message": f"Image detection failed: {str(e)}"
+            })
             raise HTTPException(
-                status_code=500, detail=f"Image detection failed: {str(e)}"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail=f"Image detection failed: {str(e)}"
             )
-

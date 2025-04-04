@@ -1,6 +1,4 @@
-LOGIN_DESCRIPTION = (
-    description
-) = """
+LOGIN_DESCRIPTION = """
 Authenticates the user and manages the session. This endpoint allows users to log in by providing their credentials.
 
 ### Parameters:
@@ -55,9 +53,7 @@ Authenticates the user and manages the session. This endpoint allows users to lo
 Ensure that the user credentials are correct to avoid authentication errors.
 """
 
-SIGNUP_DESCRIPTION = (
-    description
-) = """
+SIGNUP_DESCRIPTION = """
 Registers a new user and creates their account. This endpoint allows users to sign up by providing their email and password.
 
 ### Parameters:
@@ -107,9 +103,7 @@ Registers a new user and creates their account. This endpoint allows users to si
 Ensure the email is unique and password meets the required criteria to avoid errors during registration.
 """
 
-GOOGLE_OAUTH_DESCRIPTION = (
-    description
-) = """
+GOOGLE_OAUTH_DESCRIPTION = """
 Initiates the OAuth 2.0 flow by creating a state token and redirecting the user to Google's OAuth 2.0 login page.
 
 ### Parameters:
@@ -144,9 +138,7 @@ Initiates the OAuth 2.0 flow by creating a state token and redirecting the user 
 Ensure that the redirect URI is pre-registered in the Google OAuth Console.
 """
 
-GOOGLE_OAUTH_CALLBACK_DESCRIPTION = (
-    description
-) = """
+GOOGLE_OAUTH_CALLBACK_DESCRIPTION = """
 Handles the OAuth 2.0 callback from Google after user authorization.
 
 ### Parameters:
@@ -194,9 +186,55 @@ Handles the OAuth 2.0 callback from Google after user authorization.
 The callback URL must be pre-registered in the Google OAuth Console.
 """
 
-LOGOUT_DESCRIPTION = (
-    description
-) = """
+REGENERATE_TOKEN_DESCRIPTION = """
+This route is used to regenerate an access token for authenticated users. The refresh token is expected to be present in the cookies. If a valid refresh token is found, a new access token is generated and returned, while the refresh token is updated.
+
+### Parameters
+- `request (Request):` The incoming request object containing refresh_token in an HTTP-only cookie.
+- `db (AsyncSession):` Database session for user operations.
+
+### Returns:
+- **TokenResponse:** Contains the access token and other session-related information
+
+### Raises:
+- `HTTPException(401):` When the refresh_token is invalid
+- `HTTPException(500):` For unexpected server errors### Raises:
+
+### Security Considerations
+- The refresh token must be validated using `TokenService.verify_token`.
+- The user’s email and ID must match the token payload.
+- If authentication fails, an `HTTPException` is raised to prevent unauthorized access.
+- A new refresh token is set to maintain session security.
+
+### Flow
+1. Retrieve the refresh token from the request cookies.
+2. Validate the refresh token.
+3. Fetch the corresponding user from the database.
+4. Ensure the token data matches the user’s credentials.
+5. Generate a new access token.
+6. Return the new access token in the response body.
+7. Set the new refresh token in the response cookies.
+
+### Example Success Response:
+```json
+{
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "token_type": "Bearer",
+    "expires_in": 3600
+}
+```
+    
+### Example Error Response:
+```json
+{
+    "detail": "Invalid refresh token."
+}
+```
+
+Ensure the user has a valid refresh token before attempting to use this endpoint.
+"""
+
+LOGOUT_DESCRIPTION = """
 Logs out the user from the current session or all devices. This endpoint allows users to terminate their session securely.
 
 ### Parameters:

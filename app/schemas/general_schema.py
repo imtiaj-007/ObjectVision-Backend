@@ -1,5 +1,7 @@
+from datetime import datetime
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
+from app.schemas.enums import WebSocketMessageType
 
 
 class SuccessResponse(BaseModel):
@@ -18,3 +20,22 @@ class SuccessResponse(BaseModel):
         example={"user_id": 123, "role": "admin"},
         description="Additional dynamic fields."
     )
+
+
+class WebSocketMessage(BaseModel):
+    type: WebSocketMessageType
+    data: Dict[str, Any]
+    task_id: str
+    service: Optional[str] = None
+    progress: Optional[float] = None
+    message: Optional[str] = None
+
+
+class PresignedUrlRequest(BaseModel):
+    file_path: str
+    expiry_minutes: Optional[int] = None
+
+class PresignedUrlResponse(BaseModel):
+    url: str
+    file_path: str
+    expires_at: datetime

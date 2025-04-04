@@ -81,7 +81,7 @@ class OTPService:
         basic_plan = await SubscriptionService.get_subscription_plan_with_features(db, 2)
         plan_details_dict = helpers.serialize_datetime_object(basic_plan)
         map_purchased_plan_with_user_task.delay(
-            user_id=user_id, plan_data=plan_details_dict, order_data=None
+            user_id=user_id, plan_data=plan_details_dict
         )
 
         return {"status": 1, "message": "OTP verified successfully."}

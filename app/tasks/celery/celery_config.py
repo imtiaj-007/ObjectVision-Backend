@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic_settings import BaseSettings
 from kombu import Queue
 import msgpack
+from celery.schedules import crontab
 from app.configuration.config import settings
 
 
@@ -31,18 +32,20 @@ class CelerySettings(BaseSettings):
 
     # Queues for different task types
     LOGGING_QUEUE: str = settings.LOGGING_QUEUE or "logging"
-    TOKEN_QUEUE: str = settings.TOKEN_QUEUE or "token"
     EMAIL_QUEUE: str = settings.EMAIL_QUEUE or "email"
     DETECTION_QUEUE: str = settings.DETECTION_QUEUE or "detection"
     SUBSCRIPTION_QUEUE: str = settings.SUBSCRIPTION_QUEUE or "subscription"
+    IMAGE_QUEUE: str = settings.IMAGE_QUEUE or "image"
+    SCHEDULING_QUEUE: str = settings.SCHEDULING_QUEUE or "scheduling"
 
     # Task Queues with Priorities
     task_queues: Tuple = (
         Queue(LOGGING_QUEUE,routing_key="logging.#",queue_arguments={"x-max-priority": 10},),
-        Queue(TOKEN_QUEUE, routing_key="token.#", queue_arguments={"x-max-priority": 10}),
         Queue(EMAIL_QUEUE, routing_key="email.#", queue_arguments={"x-max-priority": 10}),
         Queue(DETECTION_QUEUE,routing_key="detection.#",queue_arguments={"x-max-priority": 10}),
         Queue(SUBSCRIPTION_QUEUE,routing_key="subscription.#",queue_arguments={"x-max-priority": 10}),
+        Queue(IMAGE_QUEUE,routing_key="image.#",queue_arguments={"x-max-priority": 10}),
+        Queue(SCHEDULING_QUEUE,routing_key="scheduling.#",queue_arguments={"x-max-priority": 10}),
     )
 
     # Task Annotations with Rate Limits, Retries, and Priorities
@@ -57,7 +60,7 @@ class CelerySettings(BaseSettings):
             "rate_limit": "100/m",
             "max_retries": 3,
             "retry_delay": 60,
-            "priority": 7,
+            "priority": 5,
         },
         "send_otp_email_task": {
             "rate_limit": "100/m",
@@ -81,19 +84,13 @@ class CelerySettings(BaseSettings):
             "rate_limit": "100/m",
             "max_retries": 3,
             "retry_delay": 60,
-            "priority": 7,
+            "priority": 5,
         },
         "send_password_reset_email_task": {
             "rate_limit": "100/m",
             "max_retries": 3,
             "retry_delay": 60,
             "priority": 7,
-        },
-        "blacklist_token_task": {
-            "rate_limit": "100/m",
-            "max_retries": 3,
-            "retry_delay": 60,
-            "priority": 6,
         },
         "store_data_in_db_task": {
             "rate_limit": "100/m",
@@ -107,6 +104,66 @@ class CelerySettings(BaseSettings):
             "retry_delay": 30,
             "priority": 8,
         },
+        "update_order_task" : {
+            "rate_limit": "100/m",
+            "max_retries": 3,
+            "retry_delay": 30,
+            "priority": 8,
+        },
+        "map_purchased_plan_with_user_task": {
+            "rate_limit": "100/m",
+            "max_retries": 3,
+            "retry_delay": 30,
+            "priority": 6,
+        },
+        "update_user_activity_task": {
+            "rate_limit": "100/m",
+            "max_retries": 3,
+            "retry_delay": 30,
+            "priority": 8,
+        },
+        "store_image_data_task": {
+            "rate_limit": "100/m",
+            "max_retries": 3,
+            "retry_delay": 30,
+            "priority": 8,
+        },
+        "tasks.image.compress_processed_image_task": {
+            "rate_limit": "100/m",
+            "max_retries": 3,
+            "retry_delay": 30,
+            "priority": 9,
+        },
+        "tasks.image.upload_image_to_S3": {
+            "rate_limit": "100/m",
+            "max_retries": 3,
+            "retry_delay": 30,
+            "priority": 7,
+        }
+    }
+
+    # Celery Beat Configuration
+    beat_schedule: Dict[str, Dict[str, Any]] = {
+        "expire_sessions": {
+            "task": "tasks.scheduling.expire_sessions",
+            "schedule": crontab(minute='*/5'),  # Every 5 minutes
+            "options": {"queue": SCHEDULING_QUEUE, "priority": 3},
+        },
+        "delete_cached_files": {
+            "task": "tasks.scheduling.delete_cached_files",
+            "schedule": crontab(minute='*/15'),  # Every 15 minutes
+            "options": {"queue": SCHEDULING_QUEUE, "priority": 3, "expires": 3600},
+        },
+        "process_subscriptions": {
+            "task": "tasks.scheduling.process_subscriptions",
+            "schedule": crontab(hour=0),  # Every day at midnight
+            "options": {"queue": SCHEDULING_QUEUE, "priority": 3},
+        },        
+        "reset_daily_usage": {
+            "task": "tasks.scheduling.reset_daily_usage",
+            "schedule": crontab(hour=0),  # Every day at midnight
+            "options": {"queue": SCHEDULING_QUEUE, "priority": 3},
+        },
     }
 
     @property
@@ -118,10 +175,11 @@ class CelerySettings(BaseSettings):
             "task_queues": self.task_queues,
             "task_routes": {
                 "tasks.logging.*": {"queue": self.LOGGING_QUEUE},
-                "tasks.token.*": {"queue": self.TOKEN_QUEUE},
                 "tasks.email.*": {"queue": self.EMAIL_QUEUE},
                 "tasks.detection.*": {"queue": self.DETECTION_QUEUE},
                 "tasks.subscription.*": {"queue": self.SUBSCRIPTION_QUEUE},
+                "tasks.image.*": {"queue": self.IMAGE_QUEUE},
+                "tasks.scheduling.*": {"queue": self.SCHEDULING_QUEUE},
             },
             "task_annotations": self.task_annotations,        
             "timezone": "UTC",
@@ -141,6 +199,7 @@ class CelerySettings(BaseSettings):
             "serializer": "msgpack",
             "accept_content": ["msgpack", "json"],
             "result_accept_content": ["msgpack", "json"],
+            "beat_schedule": self.beat_schedule,
         }
 
 
