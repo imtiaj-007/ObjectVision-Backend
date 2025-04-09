@@ -1,11 +1,20 @@
 import os
+from typing import List
 from pydantic import EmailStr
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # env type
     ENVIORNMENT: str = "development"
+    API_BASE_URL: str = "http:localhost:8000/api/v1"
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    PUBLIC_FOLDERS: List[str] = [
+        os.path.join("uploads", "image"),
+        os.path.join("output", "detection_results"),
+        os.path.join("output", "classification_results"),
+        os.path.join("output", "segmentation_results"),
+        os.path.join("output", "pose_results")
+    ]
 
     # Frontend URLs
     FRONTEND_BASE_URL: str = "http://localhost:3000"
@@ -34,6 +43,7 @@ class Settings(BaseSettings):
     AWS_BUCKET_NAME: str = "your_unique_bucket_name"
 
     # Global Variables
+    API_KEY: str = 'your_api_key'
     SECRET_KEY: str = 'your_secret_api_key'
     TOKEN_EXPIRY: int = 30
     DEFAULT_PAGE: int = 1
@@ -62,6 +72,8 @@ class Settings(BaseSettings):
     EMAIL_QUEUE: str = "email"
     DETECTION_QUEUE: str = "detection"
     SUBSCRIPTION_QUEUE: str = "subscription"
+    IMAGE_QUEUE: str = "image"
+    SCHEDULING_QUEUE: str = "scheduling"
 
     # IP_API_BASE_URL (If you don't have this Create one for free from here [https://apiip.net/])
     IP_API_BASE_URL: str = "https://apiip.net/api/check"

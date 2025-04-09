@@ -132,6 +132,33 @@ GOOGLE_OAUTH_CALLBACK_RESPONSES = {
     },
 }
 
+REGENERATE_TOKEN_RESPONSES = {
+    200: {
+        "description": "New token generated Successfully",
+        "content": {
+            "application/json": {
+                "example": {
+                    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+                    "token_type": "Bearer",
+                    "expires_in": 3600,
+                }
+            }
+        },
+    },
+    401: {
+        "description": "Unauthorized",
+        "content": {
+            "application/json": {"example": {"detail": "refresh_token is Invalid."}}
+        },
+    },
+    500: {
+        "description": "Internal Server Error",
+        "content": {
+            "application/json": {"example": {"detail": "An unexpected error occurred"}}
+        },
+    },
+}
+
 LOGOUT_RESPONSES = {
     200: {
         "description": "Successfully logged out",

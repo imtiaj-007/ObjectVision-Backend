@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 
 from app.middleware.request_logger import RequestLoggerMiddleware
 from app.db.database import DatabaseConfig, DatabaseManager
-from app.scheduler.session_scheduler import lifespan as scheduler_lifespan
 from app.handlers.exception import ExceptionHandler
 from app.configuration.config import settings
 from app.utils.logger import log
@@ -24,18 +23,16 @@ db_manager = DatabaseManager(db_config)
 
 
 @asynccontextmanager
-async def combined_lifespan(app: FastAPI):
+async def db_lifespan(app: FastAPI):
     """
-    Combine lifespan context managers for both the DB and the Scheduler.
-    This ensures that both the database connection and the scheduler 
-    are properly started and stopped.
+    lifespan context managers for the DB Session.
+    This ensures that the database connection is properly started and stopped.
     """
     try:
         # Start DB connection
         async with db_manager.lifespan(app):            
-            # Start Session Scheduler
-            async with scheduler_lifespan(app):
-                yield
+            yield
+
     finally:
         log.info("✅ Shutdown complete")
 
@@ -45,7 +42,7 @@ app = FastAPI(
     title="Object Detection API",
     description=app_description,
     version="1.0.0",
-    lifespan=combined_lifespan
+    lifespan=db_lifespan
 )
 
 # Custom exception handler to log Exceptions
@@ -70,7 +67,8 @@ app.add_middleware(
 app.add_middleware(
     RequestLoggerMiddleware,
     exclude_paths={"/health", "/metrics", "/favicon.ico", "/docs", "/openapi.json"},
-    slow_request_threshold=1.0,
+    exclude_prefixes={"/api/v1/files"},
+    slow_request_threshold=5.0,
     max_body_size=1024 * 100,
     sensitive_headers={"authorization", "cookie", "x-api-key", "session", "csrf"}
 )

@@ -11,6 +11,7 @@ from app.schemas.user_activity_schemas import (
     UserActivityCreate,
     UserActivityUpdate,
 )
+from app.utils.logger import log
 
 
 class UserActivityRepository:
@@ -18,19 +19,13 @@ class UserActivityRepository:
     Repository for subscription-related database operations including ActiveUserPlans and UserActivity.
     """
 
-    # -------------------- ActiveUserPlans Operations --------------------
-
     async def create_user_plan(
         db: AsyncSession, plan_data: ActiveUserPlanCreate
     ) -> ActiveUserPlans:
         """
         Create a new active user plan.
-
-        Args:
-            plan_data: The data for the new active user plan
-
-        Returns:
-            The created ActiveUserPlans instance
+        Args: plan_data: The data for the new active user plan
+        Returns: The created ActiveUserPlans instance
         """
         active_plan = ActiveUserPlans(**plan_data.model_dump())
         db.add(active_plan)
@@ -41,29 +36,19 @@ class UserActivityRepository:
     async def get_user_plan(db: AsyncSession, plan_id: int) -> Optional[ActiveUserPlans]:
         """
         Get an active user plan by ID.
-
-        Args:
-            plan_id: The ID of the active user plan
-
-        Returns:
-            The ActiveUserPlans instance if found, None otherwise
+        Args: plan_id: The ID of the active user plan
+        Returns: The ActiveUserPlans instance if found, None otherwise
         """
         result = await db.execute(
             select(ActiveUserPlans).where(ActiveUserPlans.id == plan_id)
         )
         return result.scalars().first()
 
-    async def get_user_plans_by_user(
-        db: AsyncSession, user_id: int
-    ) -> List[ActiveUserPlans]:
+    async def get_user_plans_by_user( db: AsyncSession, user_id: int ) -> List[ActiveUserPlans]:
         """
         Get all active user plans for a specific user.
-
-        Args:
-            user_id: The ID of the user
-
-        Returns:
-            A list of ActiveUserPlans instances
+        Args: user_id: The ID of the user
+        Returns: A list of ActiveUserPlans instances
         """
         result = await db.execute(
             select(ActiveUserPlans)
@@ -71,19 +56,17 @@ class UserActivityRepository:
             .order_by(desc(ActiveUserPlans.created_at))
         )
         return result.scalars().all()
-    
+
     async def get_active_user_plans_with_status(
         db: AsyncSession, user_id: int, is_active: bool = True
     ) -> List[ActiveUserPlans]:
         """
         Get all active user plans for a specific user with a specific status.
-
         Args:
             user_id: The ID of the user
             is_active: The active status to filter by
 
-        Returns:
-            A list of ActiveUserPlans instances
+        Returns: A list of ActiveUserPlans instances
         """
         result = await db.execute(
             select(ActiveUserPlans)
@@ -100,12 +83,8 @@ class UserActivityRepository:
     async def get_current_active_plan(db: AsyncSession, user_id: int) -> Optional[ActiveUserPlans]:
         """
         Get the current active plan for a user.
-
-        Args:
-            user_id: The ID of the user
-
-        Returns:
-            The current ActiveUserPlans instance if found, None otherwise
+        Args: user_id: The ID of the user
+        Returns: The current ActiveUserPlans instance if found, None otherwise
         """
         result = await db.execute(
             select(ActiveUserPlans)
@@ -113,37 +92,31 @@ class UserActivityRepository:
                 and_(
                     ActiveUserPlans.user_id == user_id,
                     ActiveUserPlans.is_active == True,
-                    or_(
-                        ActiveUserPlans.expiry_date == None,
-                        ActiveUserPlans.expiry_date > datetime.now(timezone.utc),
-                    ),
+                    ActiveUserPlans.is_expired == False,
                 )
             )
-            .order_by(desc(ActiveUserPlans.expiry_date))
+            .order_by(ActiveUserPlans.created_at)
         )
         return result.scalars().first()
 
+    @classmethod
     async def update_user_plan(
         self, db: AsyncSession, plan_id: int, plan_data: ActiveUserPlanUpdate
     ) -> Optional[ActiveUserPlans]:
         """
         Update an active user plan.
-
         Args:
             plan_id: The ID of the active user plan to update
             plan_data: The updated data
 
-        Returns:
-            The updated ActiveUserPlans instance if found, None otherwise
+        Returns: The updated ActiveUserPlans instance if found, None otherwise
         """
         # Filter out None values
         update_data = {k: v for k, v in plan_data.model_dump().items() if v is not None}
 
         if not update_data:
-            # No fields to update
-            return await self.get_active_user_plan(plan_id)
+            return await self.get_user_plan(db, plan_id)
 
-        # Add updated_at timestamp
         update_data["updated_at"] = datetime.now(timezone.utc)
 
         await db.execute(
@@ -153,17 +126,52 @@ class UserActivityRepository:
         )
         await db.commit()
 
-        return await self.get_active_user_plan(plan_id)
+        return await self.get_user_plan(db, plan_id)
 
+    @staticmethod
+    async def auto_activate_user_plan(db: AsyncSession, user_id: int) -> Optional[ActiveUserPlans]:
+        """
+        Fetch queued plan of a user by user_id (if exists) and activate it.
+        Args: 
+            db (AsyncSession): The database session.
+            user_id: The ID of the user
+        Returns:
+            Optional[ActiveUserPlans]: The activated user plan if successful, else None.
+        """
+        try:
+            statement = (
+                select(ActiveUserPlans)
+                .where(
+                    and_(
+                        ActiveUserPlans.user_id == user_id,
+                        ActiveUserPlans.is_expired == False,
+                        ActiveUserPlans.is_active == False
+                    )
+                )
+                .order_by(ActiveUserPlans.created_at)
+            )
+            result = await db.execute(statement)
+            queued_plan = result.scalar_one_or_none()
+
+            if queued_plan:
+                queued_plan.is_active = True
+                queued_plan.updated_at = datetime.now(timezone.utc)
+
+                db.commit()
+                db.refresh(queued_plan)
+            
+            return queued_plan                
+
+        except Exception as e:
+            log.error(f"Unexpected error in auto_activate_user_plan: {e}")
+            raise
+
+    @staticmethod
     async def deactivate_user_plans(db: AsyncSession, user_id: int) -> bool:
         """
         Deactivate all plans for a user.
-
-        Args:
-            user_id: The ID of the user
-
-        Returns:
-            True if the operation was successful
+        Args: user_id: The ID of the user
+        Returns: True if the operation was successful
         """
         await db.execute(
             update(ActiveUserPlans)
@@ -178,28 +186,11 @@ class UserActivityRepository:
         await db.commit()
         return True
 
-    async def delete_user_plan(db: AsyncSession, plan_id: int) -> bool:
-        """
-        Delete an active user plan.
-
-        Args:
-            plan_id: The ID of the active user plan to delete
-
-        Returns:
-            True if the operation was successful
-        """
-        await db.execute(
-            delete(ActiveUserPlans).where(ActiveUserPlans.id == plan_id)
-        )
-        await db.commit()
-        return True
-
-    async def check_for_expired_plans(db: AsyncSession) -> List[ActiveUserPlans]:
+    @staticmethod
+    async def expire_user_plans(db: AsyncSession) -> List[ActiveUserPlans]:
         """
         Find and deactivate expired plans.
-
-        Returns:
-            A list of deactivated ActiveUserPlans instances
+        Returns: A list of deactivated ActiveUserPlans instances
         """
         now = datetime.now(timezone.utc)
 
@@ -220,7 +211,7 @@ class UserActivityRepository:
             await db.execute(
                 update(ActiveUserPlans)
                 .where(ActiveUserPlans.id.in_(expired_ids))
-                .values(is_active=False, updated_at=now)
+                .values(is_active=False, is_expired=True, updated_at=now)
             )
             await db.commit()
 
@@ -246,7 +237,8 @@ class UserActivityRepository:
         await db.refresh(user_activity)
         return user_activity
 
-    async def get_user_activity(db: AsyncSession, activity_id: int) -> Optional[UserActivity]:
+    @classmethod
+    async def get_user_activity(self, db: AsyncSession, activity_id: int) -> Optional[UserActivity]:
         """
         Get a user activity by ID.
 
@@ -303,6 +295,7 @@ class UserActivityRepository:
         )
         return result.scalars().first()
 
+    @classmethod
     async def update_user_activity(
         self, db: AsyncSession, activity_id: int, activity_data: UserActivityUpdate
     ) -> Optional[UserActivity]:
@@ -322,10 +315,7 @@ class UserActivityRepository:
         }
 
         if not update_data:
-            # No fields to update
-            return await self.get_user_activity(activity_id)
-
-        # Add updated_at timestamp
+            return await self.get_user_activity(db, activity_id)
         update_data["updated_at"] = datetime.now(timezone.utc)
 
         await db.execute(
@@ -335,50 +325,7 @@ class UserActivityRepository:
         )
         await db.commit()
 
-        return await self.get_user_activity(activity_id)
-
-    async def increment_activity_usage(
-        self,
-        db: AsyncSession,
-        active_user_plan_id: int,
-        activity_type: ActivityTypeEnum,
-        daily_increment: int = 1,
-        total_increment: int = 1,
-    ) -> Optional[UserActivity]:
-        """
-        Increment the usage counters for a specific activity.
-
-        Args:
-            active_user_plan_id: The ID of the active user plan
-            activity_type: The type of activity to update
-            daily_increment: The amount to increment daily usage by
-            total_increment: The amount to increment total usage by
-
-        Returns:
-            The updated UserActivity instance if found, None otherwise
-        """
-        # First, find the activity
-        activity = await self.get_activity_by_plan_and_type(
-            active_user_plan_id, activity_type
-        )
-
-        if not activity:
-            return None
-
-        # Update the usage counts
-        await db.execute(
-            update(UserActivity)
-            .where(and_(UserActivity.id == activity.id))
-            .values(
-                daily_usage=UserActivity.daily_usage + daily_increment,
-                total_usage=UserActivity.total_usage + total_increment,
-                updated_at=datetime.now(timezone.utc),
-            )
-        )
-        await db.commit()
-
-        # Return the updated activity
-        return await self.get_user_activity(activity.id)
+        return await self.get_user_activity(db, activity_id)
 
     async def reset_daily_usage(
         db: AsyncSession,
@@ -390,25 +337,25 @@ class UserActivityRepository:
         Can be filtered by plan ID and/or activity type.
 
         Args:
-            active_user_plan_id: Optional ID of the active user plan to filter by
-            activity_type: Optional activity type to filter by
+            db: Async SQLAlchemy session
+            active_user_plan_id: Optional filter for active user plan ID
+            activity_type: Optional filter for activity type
 
         Returns:
-            The number of records updated
+            Number of records updated
         """
-        query = update(UserActivity).values(
-            daily_usage=0, updated_at=datetime.now(timezone.utc)
+        filters = []
+
+        if active_user_plan_id:
+            filters.append(UserActivity.active_user_plan_id == active_user_plan_id)
+        if activity_type:
+            filters.append(UserActivity.activity_type == activity_type)
+
+        query = (
+            update(UserActivity)
+            .where(and_(*filters) if filters else True)
+            .values(daily_usage=0, updated_at=datetime.now(timezone.utc))
         )
-
-        # Apply filters if provided
-        conditions = []
-        if active_user_plan_id is not None:
-            conditions.append(UserActivity.active_user_plan_id == active_user_plan_id)
-        if activity_type is not None:
-            conditions.append(UserActivity.activity_type == activity_type)
-
-        if conditions:
-            query = query.where(and_(*conditions))
 
         result = await db.execute(query)
         await db.commit()

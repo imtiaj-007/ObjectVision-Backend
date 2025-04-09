@@ -1,12 +1,6 @@
-from enum import Enum
 from typing import Dict
-from fastapi import HTTPException
-
-
-class FileType(Enum):
-    IMAGE = "IMAGE"
-    VIDEO = "VIDEO"
-    DOCUMENT = "DOCUMENT"
+from fastapi import HTTPException, status
+from app.schemas.enums import FileType
 
 
 class FileConfig:
@@ -62,12 +56,16 @@ class FileConfig:
         """
         if not filename or not file_type:
             raise HTTPException(
-                status_code=400, detail="Filename and file type are required"
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Filename and file type are required"
             )
 
         config = cls.CONFIGURATIONS.get(file_type)
         if not config:
-            raise HTTPException(status_code=400, detail="Invalid file type")
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, 
+                detail="Invalid file type"
+            )
 
         # Get file extension
         extension = cls._get_extension(filename)
@@ -76,14 +74,14 @@ class FileConfig:
         if extension not in config["extensions"]:
             allowed_ext = ", ".join(config["extensions"])
             raise HTTPException(
-                status_code=400,
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 detail=f"Invalid file extension for {file_type.value}. Allowed: {allowed_ext}",
             )
         
         # Validate file size
         if file_size > config["max_size"]:
             raise HTTPException(
-                status_code=400,
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail=f"File size exceeds maximum allowed size of {config['max_size']} bytes",
             )
 
