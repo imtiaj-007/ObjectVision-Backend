@@ -1,8 +1,9 @@
 from app.tasks.taskfiles import (
     base,
-    log_task,
+    detection_task,
     email_task,
+    image_task,
+    log_task,
     subscription_task,
-    token_task,
-    detection_task
+    scheduling_task,
 )

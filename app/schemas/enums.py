@@ -18,6 +18,32 @@ class LogLevel(str, Enum):
     CRITICAL = "CRITICAL"
 
 
+class FileType(str, Enum):
+    """ Enum representing different file types. """
+
+    IMAGE = "IMAGE"
+    VIDEO = "VIDEO"
+    DOCUMENT = "DOCUMENT"
+
+
+class ImageFormatsEnum(str, Enum):
+    """ Enum representing different image formats. """
+
+    PNG = "png"
+    JPG = "jpg"
+    JPEG = "jpeg"
+    WEBP = "webp"
+
+
+class ModelSizeEnum(str, Enum):
+    """ Enum representing different model sizes """
+
+    NANO = "nano"
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+    EXTREME = "extreme"
+
 class ModelTypeEnum(str, Enum):
     """ Enum representing different service / model types. """
 
@@ -81,3 +107,20 @@ class ActivityTypeEnum(str, Enum):
     STORAGE_USAGE = "STORAGE_USAGE"
     IMAGE_USAGE = "IMAGE_USAGE"
     VIDEO_USAGE = "VIDEO_USAGE"
+
+
+class WebSocketMessageType(str, Enum):
+    """ Enum representing different status types of Websocket Life Cycle. """
+
+    STATUS = "status"
+    RESULT = "result"
+    ERROR = "error"
+    PROGRESS = "progress"
+
+
+class DetectionTypeEnum(str, Enum):
+    """ Enum representing different status types of Websocket Life Cycle. """
+    
+    IMAGE = "IMAGE"
+    VIDEO = "VIDEO"
+    LIVE_CAM = "LIVE_CAM"

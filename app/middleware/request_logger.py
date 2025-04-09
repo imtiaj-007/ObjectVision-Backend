@@ -25,6 +25,7 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
         self,
         app: ASGIApp,
         exclude_paths: Optional[Set[str]] = None,
+        exclude_prefixes: Optional[Set[str]] = None,
         exclude_methods: Optional[Set[str]] = None,
         slow_request_threshold: float = 1.0,
         sensitive_headers: Optional[Set[str]] = None,
@@ -33,6 +34,7 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
     ):
         super().__init__(app)
         self.exclude_paths = exclude_paths or {"/health", "/metrics", "/favicon.ico", "/docs", "/openapi.json"}
+        self.exclude_prefixes = exclude_prefixes or {"/api/v1/files"}
         self.exclude_methods = exclude_methods or {"OPTIONS"}
         self.slow_request_threshold = slow_request_threshold
         self.sensitive_headers = sensitive_headers or {
@@ -45,6 +47,8 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
     async def should_process_request(self, request: Request) -> bool:
         """Determine if the request should be processed based on exclusion rules."""
         if request.url.path in self.exclude_paths:
+            return False
+        if any(request.url.path.startswith(prefix) for prefix in self.exclude_prefixes):
             return False
         if request.method in self.exclude_methods:
             return False

@@ -193,6 +193,33 @@ async def google_oauth_callback(
     )    
 
 
+@router.get(
+    "/refresh_token", 
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+    responses=auth_res.REGENERATE_TOKEN_RESPONSES,
+    summary="Regenerate Access Token",
+    description=auth_desc.REGENERATE_TOKEN_DESCRIPTION
+)
+async def regenerate_token(
+    request: Request, 
+    db: AsyncSession = Depends(db_session_manager.get_db)
+) -> TokenResponse:
+    """
+    Route to refresh access token using refresh token
+    Expects refresh token in HTTP-only cookie
+    Returns new access token in response body and sets new refresh token in cookie
+    """
+    
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token missing"
+        )
+    return await AuthService.regenerate_access_token(db, refresh_token)
+
+
 @router.post(
     "/logout", 
     response_model=LogoutResponse,

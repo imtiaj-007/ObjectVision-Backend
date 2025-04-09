@@ -24,6 +24,7 @@ class ActiveUserPlans(Base, table=True):
                 "plan_name": "SILVER",
                 "description": "Ideal for regular users and moderate usage.",
                 "is_active": True,
+                "is_expired": False,
                 "expiry_date": "2025-03-17T10:00:00Z",
                 "backup_till": "2025-04-14T10:00:00Z",
                 "created_at": "2025-02-15T10:00:00Z",
@@ -57,6 +58,9 @@ class ActiveUserPlans(Base, table=True):
     description: Optional[str] = Field(default=None, description="Payment description")
     is_active: bool = Field(
         default=False, description="Whether the purchased plan is currently active"
+    )
+    is_expired: bool = Field(
+        default=False, description="Whether the purchased plan is expired"
     )
     expiry_date: Optional[datetime] = Field(
         default=None, 

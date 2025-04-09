@@ -7,7 +7,9 @@ from typing import Dict, List, Union, Optional
 from tqdm import tqdm
 from datetime import datetime
 from ultralytics import YOLO
+
 from app.configuration.config import settings
+from app.tasks.taskfiles.image_task import compress_processed_image_task
 from app.utils.logger import log
 
 
@@ -79,6 +81,7 @@ class YOLOProcessor:
 
                 self.models[model_type] = YOLO(str(model_path))
                 log.info(f"Successfully loaded {model_type} model from {model_path}")
+
             except Exception as e:
                 log.error(f"Failed to load {model_type} model: {str(e)}")
                 raise
@@ -116,13 +119,14 @@ class YOLOProcessor:
                 **kwargs,
             )
             log.info(f"Completed training for {model_type} model")
+
         except Exception as e:
             log.error(f"Training failed: {str(e)}")
             raise
 
-    def _extract_results(self, results, model_type: str) -> Dict:
+    def _extract_results(self, results, model_type: str) -> List[Dict]:
         """Extract relevant information from model results based on model type"""
-        if model_type == "detection":
+        if model_type in ["detection", "segmentation"]:
             return [
                 {
                     "class_name": results[0].names[int(cls)],
@@ -131,20 +135,6 @@ class YOLOProcessor:
                 }
                 for box, cls, conf in zip(
                     results[0].boxes.data, results[0].boxes.cls, results[0].boxes.conf
-                )
-            ]
-
-        elif model_type == "segmentation":
-            return [
-                {
-                    "class_name": results[0].names[int(cls)],
-                    "confidence": float(conf),
-                    "bbox": box[:4].tolist(),
-                }
-                for box, cls, conf in zip(
-                    results[0].boxes.data,
-                    results[0].boxes.cls,
-                    results[0].boxes.conf,
                 )
             ]
 
@@ -227,7 +217,9 @@ class YOLOProcessor:
         """
         try:
             # Convert image path to Path object
-            image_path = Path(image_path)
+            if type(image_path) != Path:
+                image_path = Path(image_path)
+
             if not image_path.exists():
                 raise FileNotFoundError(f"Image not found: {image_path}")
 
@@ -240,7 +232,7 @@ class YOLOProcessor:
             # Process image
             log.info(f"Processing image: {image_path} with {model_type} model")
             start_time = datetime.now()
-            output_dir = f"output\{model_type}_results"
+            output_dir = Path("output") / f"{model_type}_results"
 
             results = self.models[model_type](
                 str(image_path),
@@ -251,18 +243,26 @@ class YOLOProcessor:
                 exist_ok=True,
             )
 
+            processed_image_path = Path(output_dir, image_path.stem)
+            compress_processed_image_task.delay(
+                image_path=str(processed_image_path),
+                output_dir=str(output_dir),
+                quality=50,
+            )
+
             processing_time = (datetime.now() - start_time).total_seconds()
 
             # Extract and format results
             processed_results = {
                 "image_path": str(image_path),
+                "image_url": None,
                 "model_type": model_type,
                 "processing_time": processing_time,
                 "model_size": self.model_config["path"].strip("/"),
                 "confidence_threshold": conf,
                 "device": self.device,
                 "predictions": self._extract_results(results, model_type),
-                "output_path": f"{output_dir}\{file_name}",
+                "output_path": str(Path(processed_image_path).with_suffix('.webp')),
                 "total_objects": self._count_objects(results, model_type),
             }
 
