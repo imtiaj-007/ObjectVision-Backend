@@ -10,6 +10,7 @@ from ultralytics import YOLO
 
 from app.configuration.config import settings
 from app.tasks.taskfiles.image_task import compress_processed_image_task
+from cache.file_tracker import local_file_tracker
 from app.utils.logger import log
 
 
@@ -232,7 +233,7 @@ class YOLOProcessor:
             # Process image
             log.info(f"Processing image: {image_path} with {model_type} model")
             start_time = datetime.now()
-            output_dir = Path("output") / f"{model_type}_results"
+            output_dir = Path(f"output\{model_type}_results")
 
             results = self.models[model_type](
                 str(image_path),
@@ -251,6 +252,8 @@ class YOLOProcessor:
             )
 
             processing_time = (datetime.now() - start_time).total_seconds()
+            output_path = Path(processed_image_path).with_suffix('.webp')
+            local_file_tracker.add_file(output_path)
 
             # Extract and format results
             processed_results = {
@@ -262,7 +265,7 @@ class YOLOProcessor:
                 "confidence_threshold": conf,
                 "device": self.device,
                 "predictions": self._extract_results(results, model_type),
-                "output_path": str(Path(processed_image_path).with_suffix('.webp')),
+                "output_path": str(output_path),
                 "total_objects": self._count_objects(results, model_type),
             }
 

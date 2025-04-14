@@ -1,10 +1,11 @@
 import json
 import uuid
-from typing import Dict, Any, Optional, Union, List
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File, Form, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from cache import local_storage
+from app.configuration.config import settings
+from app.configuration.ws_manager import WSConnectionManager, get_connection_manager
 from cache.activity_tracker import user_activity_tracker
 from app.db.database import db_session_manager
 from app.services.auth_service import AuthService
@@ -15,7 +16,6 @@ from app.tasks.taskfiles.subscription_task import update_user_activity_task
 from app.schemas.enums import ModelSizeEnum, WebSocketMessageType, ActivityTypeEnum, DetectionTypeEnum
 from app.schemas.detection_schema import DetectionRequest, DetectionResults, DetectionWithCount
 from app.schemas.user_schema import UserData
-from app.configuration.config import settings
 from app.utils.logger import log
 
 
@@ -143,9 +143,25 @@ async def image_detection(
     client_id: str = Form(..., description="Client ID for WebSocket communication"),
     auth_obj: Optional[Dict[str, Any]] = Depends(AuthService.authenticate_user),
     db: AsyncSession = Depends(db_session_manager.get_db),
+    connection_manager: WSConnectionManager = Depends(get_connection_manager),
+
 ):
     try:
-        requested_services_list = json.loads(requested_services) if requested_services else None    
+        # Parse requested services
+        requested_services_list = []
+        if requested_services:
+            try:
+                requested_services_list = json.loads(requested_services)
+                if not isinstance(requested_services_list, list):
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="requested_services must be a JSON array."
+                    )
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid JSON format for requested_services."
+                )   
 
         if not file:
             raise HTTPException(
@@ -153,11 +169,19 @@ async def image_detection(
                 detail="Image file is missing."
             )        
 
-        if client_id not in local_storage.active_connections:
+        if not await connection_manager.connection_exists(client_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="WebSocket connection not established. Connect to /ws/{client_id} first."
-            )            
+            )         
+        
+        connections = await connection_manager.get_active_connections()
+        if client_id not in connections:
+            log.warning(f"Client ID {client_id} not found in active connections map")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="WebSocket connection details not found."
+            )
 
         usage_data = await validate_usage_limit(
             db, auth_obj.get("user"), detection_type=DetectionTypeEnum.IMAGE
@@ -169,20 +193,22 @@ async def image_detection(
         )
 
         detection_task_id = str(uuid.uuid4())
-
-        # Notify client that processing has started
-        await local_storage.active_connections[client_id].send_json({
-            "type": WebSocketMessageType.STATUS,
-            "status": "started",
-            "task_id": detection_task_id,
-            "message": "Detection process started"
-        })
+        await connection_manager.send_message(
+            client_id=client_id,
+            message={
+                "type": WebSocketMessageType.STATUS,
+                "status": "started",
+                "task_id": detection_task_id,
+                "message": "Detection process started"
+            }
+        )
 
         result = await DetectionService.image_detection_ws(
             file=file, 
             request_data=request_data, 
             user_data=auth_obj["user"],
-            websocket=local_storage.active_connections[client_id],
+            client_id=client_id,
+            connection_manager=connection_manager,
             task_id=detection_task_id
         )    
         update_user_activity_task.delay(
@@ -193,16 +219,23 @@ async def image_detection(
         )
         return result
 
-    except json.JSONDecodeError as json_err:
-        log.error(f"JSON parsing error: {str(json_err)}")
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Invalid JSON format for requested_services.",
-        )
-
     except HTTPException as http_err:
         log.error(f"Http error in image_detection: {str(http_err)}")
-        raise
+        try:
+            if 'client_id' in locals() and 'detection_task_id' in locals():
+                await connection_manager.send_message(
+                    client_id=client_id,
+                    message={
+                        "type": WebSocketMessageType.ERROR,
+                        "task_id": detection_task_id,
+                        "error": http_err.detail,
+                        "status_code": http_err.status_code
+                    }
+                )
+        except Exception as ws_err:
+            log.error(f"Failed to send error notification via WebSocket: {str(ws_err)}")
+            
+        raise http_err
 
     except Exception as e:
         log.error(f"Unexpected error in image_detection: {str(e)}")

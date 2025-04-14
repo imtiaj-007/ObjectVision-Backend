@@ -6,7 +6,7 @@ from pathlib import Path
 from PIL import Image, ImageFile
 from datetime import datetime
 from typing import Dict, List, Any, Union, Optional
-from fastapi import UploadFile, HTTPException, status, WebSocket
+from fastapi import UploadFile, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.yolo_service import YOLOProcessor, config
@@ -16,8 +16,10 @@ from app.schemas.detection_schema import DetectionRequest
 from app.schemas.image_schema import ImageMetadata, CreateImage 
 from app.repository.detection_repository import DetectionRepository
 
+from app.configuration.ws_manager import WSConnectionManager
 from app.tasks.taskfiles.detection_task import store_image_data_task
 from app.helpers.file_types import FileConfig, FileType
+from cache.file_tracker import local_file_tracker
 from app.utils.logger import log
 
 
@@ -109,18 +111,20 @@ class DetectionService:
         cls,
         file: UploadFile,
         request_data: DetectionRequest,
-        user_data: UserData,        
-        websocket: WebSocket,
+        user_data: UserData,
+        client_id: str,
+        connection_manager: WSConnectionManager,
         task_id: str
     ) -> Dict[str, Any]:
         """
         Process image through multiple detection services and stream results via WebSocket.
-    
+
         Args:
             file: Uploaded image file
             request_data: Detection request parameters
             user_data: User data
-            websocket: WebSocket connection
+            client_id: Client identifier for WebSocket communication
+            connection_manager: WebSocket connection manager instance
             task_id: Unique task identifier
             
         Returns:
@@ -142,32 +146,41 @@ class DetectionService:
             file_path = Path(f"uploads/images/{unique_filename}")
 
             # Send progress update
-            await websocket.send_json({
-                "type": WebSocketMessageType.PROGRESS,
-                "task_id": task_id,
-                "progress": 10,
-                "message": "Saving and preparing uploaded file"
-            })
+            await connection_manager.send_message(
+                client_id=client_id,
+                message={
+                    "type": WebSocketMessageType.PROGRESS,
+                    "task_id": task_id,
+                    "progress": 10,
+                    "message": "Saving and preparing uploaded file"
+                }
+            )
 
             # Save file locally
             if not await cls.save_file_locally(file, file_path):
-                await websocket.send_json({
-                    "type": WebSocketMessageType.ERROR,
-                    "task_id": task_id,
-                    "message": "Failed to save file locally"
-                })
+                await connection_manager.send_message(
+                    client_id=client_id,
+                    message={
+                        "type": WebSocketMessageType.ERROR,
+                        "task_id": task_id,
+                        "message": "Failed to save file locally"
+                    }
+                )
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                     detail="Failed to save file locally"
                 )
 
             # Send progress update
-            await websocket.send_json({
-                "type": WebSocketMessageType.PROGRESS,
-                "task_id": task_id,
-                "progress": 20,
-                "message": "File saved, initializing detection models"
-            })
+            await connection_manager.send_message(
+                client_id=client_id,
+                message={
+                    "type": WebSocketMessageType.PROGRESS,
+                    "task_id": task_id,
+                    "progress": 20,
+                    "message": "File saved, initializing detection models"
+                }
+            )
 
             # Process image through requested or all services
             services_to_run: List[str] = request_data.requested_services or cls.services
@@ -183,12 +196,18 @@ class DetectionService:
             progress_per_service = 60 / len(services_to_run) 
             current_progress = 20
 
-            await websocket.send_json({
-                "type": WebSocketMessageType.PROGRESS,
-                "task_id": task_id,
-                "progress": current_progress,
-                "message": f"Models initialized, processing with {', '.join(services_to_run)} services"
-            })
+            await connection_manager.send_message(
+                client_id=client_id,
+                message={
+                    "type": WebSocketMessageType.PROGRESS,
+                    "task_id": task_id,
+                    "progress": current_progress,
+                    "message": f"Models initialized, processing with {', '.join(services_to_run)} services"
+                }
+            )
+
+            # Refresh connection TTL before potentially long-running operations
+            await connection_manager.refresh_connection(client_id)
 
             for i, service in enumerate(services_to_run):
                 if service not in cls.services:
@@ -196,12 +215,15 @@ class DetectionService:
 
                 # Send progress update - starting this service
                 current_progress += progress_per_service / 2
-                await websocket.send_json({
-                    "type": WebSocketMessageType.PROGRESS,
-                    "task_id": task_id,
-                    "progress": current_progress,
-                    "message": f"Processing with {service} model"
-                })
+                await connection_manager.send_message(
+                    client_id=client_id,
+                    message={
+                        "type": WebSocketMessageType.PROGRESS,
+                        "task_id": task_id,
+                        "progress": current_progress,
+                        "message": f"Processing with {service} model"
+                    }
+                )
 
                 # Process image with this service
                 service_result = await asyncio.to_thread(
@@ -215,16 +237,23 @@ class DetectionService:
 
                 # Update progress for completed service
                 current_progress += progress_per_service / 2
+                
+                # Refresh connection TTL periodically during long-running operations
+                await connection_manager.refresh_connection(client_id)
 
+            local_file_tracker.add_file(file_path)
             img_properties = await cls.get_image_properties(file_path)
 
             # Send progress update
-            await websocket.send_json({
-                "type": WebSocketMessageType.PROGRESS,
-                "task_id": task_id,
-                "progress": 80,
-                "message": "Processing complete, storing results"
-            })
+            await connection_manager.send_message(
+                client_id=client_id,
+                message={
+                    "type": WebSocketMessageType.PROGRESS,
+                    "task_id": task_id,
+                    "progress": 80,
+                    "message": "Processing complete, storing results"
+                }
+            )
 
             # Construct metadata
             img_metadata = ImageMetadata(
@@ -243,12 +272,18 @@ class DetectionService:
                 local_file_path=str(file_path),
             )
 
-            await websocket.send_json({
-                "type": WebSocketMessageType.PROGRESS,
-                "task_id": task_id,
-                "progress": 90,
-                "message": "Saving results to database and cloud storage"
-            })
+            await connection_manager.send_message(
+                client_id=client_id,
+                message={
+                    "type": WebSocketMessageType.PROGRESS,
+                    "task_id": task_id,
+                    "progress": 90,
+                    "message": "Saving results to database and cloud storage"
+                }
+            )
+
+            # Refresh connection before triggering asynchronous task
+            await connection_manager.refresh_connection(client_id)
 
             store_image_data_task.delay(
                 user_id=user_data.id,
@@ -260,23 +295,33 @@ class DetectionService:
 
             data = { **img_data.model_dump(), "results": results }
 
-            await websocket.send_json({
-                "type": WebSocketMessageType.RESULT,
-                "task_id": task_id,
-                "status": "completed",
-                "progress": 100,
-                "message": "Processing complete",
-                "data": data
-            })
+            await connection_manager.send_message(
+                client_id=client_id,
+                message={
+                    "type": WebSocketMessageType.RESULT,
+                    "task_id": task_id,
+                    "status": "completed",
+                    "progress": 100,
+                    "message": "Processing complete",
+                    "data": data
+                }
+            )
             return data
         
         except Exception as e:
-            log.error(f"Unexpected error occurred in image detection: {str(e)}")
-            await websocket.send_json({
-                "type": WebSocketMessageType.ERROR,
-                "task_id": task_id,
-                "message": f"Image detection failed: {str(e)}"
-            })
+            log.error(f"Unexpected error occurred in image detection: {str(e)}")        
+            try:
+                await connection_manager.send_message(
+                    client_id=client_id,
+                    message={
+                        "type": WebSocketMessageType.ERROR,
+                        "task_id": task_id,
+                        "message": f"Image detection failed: {str(e)}"
+                    }
+                )
+            except Exception as ws_err:
+                log.error(f"Failed to send error notification via WebSocket: {str(ws_err)}")
+                
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                 detail=f"Image detection failed: {str(e)}"

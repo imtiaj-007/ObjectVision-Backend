@@ -1,28 +1,32 @@
-# Ignore virtual environments
+# Local Virtual enviornment
 venv/
 .venv/
+ENV/
+node_modules/
+volumes/
 
 # Byte-compiled Python files
 *.pyc
 *.pyo
+*.pyd
 __pycache__/
-
-# Logs
-logs/
-*.log
 
 # Media, models and model outputs
 ML_models/yolo11/*
 uploads/*
 output/*
 
+# Exclude logs
+logs/
+*.log
+
 # Environment variables
 .env
-.env.development
+.env.example
 .env.production
 
 # Migrations
-alembic/versions/*
+alembic/versions/*.pyc
 alembic.ini
 
 # IDE settings
@@ -42,15 +46,15 @@ dist/
 build/
 .eggs/
 
-# Docker-related files (if using Docker)
-*.env.docker
-docker-compose.override.yml
-
 # Testing/coverage files
 htmlcov/
 .coverage
 .cache
 .pytest_cache/
+
+# Development files
+*.md
+*.rst 
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
@@ -58,3 +62,4 @@ htmlcov/
 # Others
 *.bak
 *.tmp
+.git

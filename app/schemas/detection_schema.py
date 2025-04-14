@@ -82,6 +82,7 @@ class DetectionData(BaseModel):
         ]
     ] = Field(..., description="Predictions data (varies by model_type)")
     total_objects: int = Field(..., description="Total number of objects detected")
+    output_path: Optional[str] = Field(None, description="Local / Cloud path of the processed file")
 
 
 # Creating partial model instances to properly work with socket and DB data
