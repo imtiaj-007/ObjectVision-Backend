@@ -1,5 +1,3 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, status
-
 from app.routes.auth import router as auth_router
 from app.routes.otp import router as otp_router
 from app.routes.user import router as user_router
@@ -12,7 +10,8 @@ from app.routes.subscription import router as subscription_router
 from app.routes.user_activity import router as user_activity_router
 from app.routes.file_url import router as file_router
 
-from cache import local_storage
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status, Depends
+from app.configuration.ws_manager import WSConnectionManager, get_connection_manager
 from app.utils.logger import log
 
 
@@ -21,35 +20,58 @@ router = APIRouter()
 
 
 @router.websocket("/v1/ws/{client_id}")
-async def websocket_detection(
+async def websocket_endpoint( 
     websocket: WebSocket, 
-    client_id: str
+    client_id: str,
+    connection_manager: WSConnectionManager = Depends(get_connection_manager)
 ):
-    if not client_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="client_id is required to establist socket-connection."
-        )
+    # Accept the websocket connection first
     await websocket.accept()
-    local_storage.active_connections[client_id] = websocket
+    
+    # Validate client_id
+    if not client_id or len(client_id.strip()) == 0:
+        log.warning(f"Rejected WebSocket connection with invalid client_id")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    
+    # Check if connection already exists
+    if await connection_manager.connection_exists(client_id):
+        log.warning(f"Duplicate connection attempt for client_id: {client_id}")
+        await websocket.send_json({
+            "type": "error",
+            "message": "Connection with this ID already exists"
+        })
+        # await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        # return
+    
+    # Register the connection with Redis
+    if not await connection_manager.connect(client_id, websocket):
+        log.error(f"Failed to register client {client_id} with connection manager")
+        await websocket.send_json({
+            "type": "error",
+            "message": "Failed to establish connection"
+        })
+        await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+        return
+
+    # Send confirmation to client
+    await websocket.send_json({
+        "type": "connection_established",
+        "client_id": client_id
+    })
     
     try:
-        while True:
-            data = await websocket.receive_text()            
-            await websocket.send_json({
-                "status": "received", 
-                "message": "Keeping connection alive"
-            })
-    
+        async for message in connection_manager.listen_messages(client_id):
+            await connection_manager.refresh_connection(client_id)
+            await websocket.send_json(message)
+            
     except WebSocketDisconnect:
         log.info(f"Client {client_id} disconnected")
-    
     except Exception as e:
-        log.error(f"WebSocket error: {str(e)}")
-    
-    finally:
-        if client_id in local_storage.active_connections:
-            del local_storage.active_connections[client_id]
+        log.error(f"WebSocket error for client {client_id}: {str(e)}")
+    finally:            
+        await connection_manager.disconnect(client_id)
+        log.info(f"Connection resources cleaned up for client {client_id}")
 
 
 # Include sub-routers

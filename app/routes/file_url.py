@@ -1,6 +1,6 @@
 import hmac
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import FileResponse
 from app.configuration.config import settings
@@ -12,6 +12,7 @@ from app.services.file_service import (
     generate_presigned_url,
     convert_file_format
 )
+from app.services.s3_bucket_service import s3_manager
 from app.schemas.general_schema import PresignedUrlRequest, PresignedUrlResponse
 from app.schemas.enums import FileType, ImageFormatsEnum
 from app.utils.logger import log
@@ -30,13 +31,14 @@ async def create_presigned_url(request: PresignedUrlRequest):
         file_path = request.file_path
         file_url = Path(request.file_path).as_posix()
 
-        if not is_path_allowed(file_path):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access to this path is not allowed",
-            )
+        # if not is_path_allowed(file_path):
+        #     raise HTTPException(
+        #         status_code=status.HTTP_403_FORBIDDEN,
+        #         detail="Access to this path is not allowed",
+        #     )
 
         presigned_data = generate_presigned_url(file_url, request.expiry_minutes)
+        print(presigned_data)
         return {
             **presigned_data,
             "file_path": file_path
@@ -44,10 +46,12 @@ async def create_presigned_url(request: PresignedUrlRequest):
     
     except Exception as e:
         log.error(f"Error in create_presigned_url: {str(e)}")
+        raise
 
 
 @router.get(
     "/local/{file_path:path}",
+    response_class=FileResponse
 )
 async def get_file(
     file_path: str, 
@@ -72,11 +76,11 @@ async def get_file(
             )
 
         # Check if path is allowed
-        if not is_path_allowed(str(normalized_path)):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access to this path is not allowed",
-            )
+        # if not is_path_allowed(str(normalized_path)):
+        #     raise HTTPException(
+        #         status_code=status.HTTP_403_FORBIDDEN,
+        #         detail="Access to this path is not allowed",
+        #     )
 
         full_path = (Path(settings.BASE_DIR) / file_path.lstrip("/")).resolve()
 
@@ -129,3 +133,29 @@ async def download_file(
     except Exception as e:
         log.error(f"Error in get_file: {str(e)}")
         raise
+
+
+@router.post(
+    "/cloud/generate-presigned-url",
+    response_model=PresignedUrlResponse,
+    dependencies=[Depends(verify_api_key), Depends(AuthService.authenticate_user)],
+)
+async def create_cloud_presigned_url(request: PresignedUrlRequest):
+    """Generate a S3 / Cloud presigned URL for accessing a specific file."""
+    try:
+        file_path = Path(request.file_path)
+        folder = file_path.parent
+        file_name = file_path.name
+
+        presigned_data = s3_manager.get_download_url(
+            folder=folder, filename=file_name, file_type=FileType.IMAGE, expiration=request.expiry_minutes*60
+        )
+        expires_at = int(
+            (datetime.now(timezone.utc) + 
+                timedelta(minutes=request.expiry_minutes)).timestamp()
+        )
+
+        return { **presigned_data, "expires_at": expires_at }
+
+    except Exception as e:
+        log.error(f"Error in create_presigned_url: {str(e)}")

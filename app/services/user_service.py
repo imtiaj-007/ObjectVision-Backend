@@ -85,17 +85,19 @@ class UserService:
         await UserRepository.update_user(db, user_data.id, u_data)
 
         # Store Phone Number
-        phone = user_info.phone_number.model_dump()
-        p_data = PhoneNumberCreate(
-            **phone, 
-            user_id=user_data.id
-        )
-        await PhoneRepository.create_phone(db, phone_data=p_data)
+        if user_info.phone_number:
+            phone = user_info.phone_number.model_dump()
+            p_data = PhoneNumberCreate(
+                **phone, 
+                user_id=user_data.id
+            )
+            await PhoneRepository.create_phone(db, phone_data=p_data)
 
         # Store Address Information
-        address = user_info.address.model_dump()
-        a_data = AddressCreate(
-            **address, 
-            user_id=user_data.id
-        )
-        await AddressRepository.create_address(db, address_data=a_data)
+        if user_info.address:
+            address = user_info.address.model_dump()
+            a_data = AddressCreate(
+                **address, 
+                user_id=user_data.id
+            )
+            await AddressRepository.create_address(db, address_data=a_data)

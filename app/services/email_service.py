@@ -117,11 +117,10 @@ class EmailService:
                 return self._send_request(headers, payload, retry_count + 1)
             raise
         except httpx.HTTPStatusError as e:
-            print("Brevo Error: ", e)
-            log.error(f"HTTP error: {e.response.text}")
+            log.error(f"HTTP error: {str(e.response.text)}")
             raise
         except Exception as e:
-            log.error(f"Unexpected error: {e}")
+            log.error(f"Unexpected error: {str(e)}")
             raise
 
     def _prepare_recipients(

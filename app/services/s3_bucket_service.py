@@ -213,7 +213,7 @@ class S3Manager:
         self._validate_file_params(folder, filename, file_type)
 
         # Use Path for joining folder and filename
-        file_path = Path(folder) / filename
+        file_path = Path(f"{folder}/{filename}")
         file_key = file_path.as_posix()
 
         try:
@@ -226,16 +226,11 @@ class S3Manager:
                 )
             raise
 
-        url = self.generate_presigned_url(file_key, "get_object", expiration)
-
-        file_path = Path(filename)
-        ext = file_path.suffix.lower()
+        url = self.generate_presigned_url(file_key, "get_object", expiration)     
 
         return {
             "url": url,
-            "file_key": file_key,
-            "expires_in": expiration,
-            "content_type": FileConfig.CONFIGURATIONS[file_type]["mime_types"].get(ext),
+            "file_path": file_key,
         }
 
 

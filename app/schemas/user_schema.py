@@ -172,8 +172,8 @@ class UserInfo(BaseModel):
         example="john_doe",
         description="Unique username for the user (3-15 characters).",
     )
-    phone_number: PhoneNumberBase = Field(
-        ...,
+    phone_number: Optional[PhoneNumberBase] = Field(
+        None,
         example={
             "phone_number": "1234567890",
             "country_code": "+91",
@@ -182,8 +182,8 @@ class UserInfo(BaseModel):
         },
         description="User's Phone Number Details.",
     )
-    address: AddressBase = Field(
-        ...,
+    address: Optional[AddressBase] = Field(
+        None,
         example={
             "address_line_1": "Apt 4B",
             "address_line_2": "123 Main St",

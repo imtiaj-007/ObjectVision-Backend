@@ -78,7 +78,7 @@ class OTPService:
         send_welcome_email_task.delay(recipient)
 
         # Map Free subscription plan with the user
-        basic_plan = await SubscriptionService.get_subscription_plan_with_features(db, 2)
+        basic_plan = await SubscriptionService.get_subscription_plan_with_features(db, 1)
         plan_details_dict = helpers.serialize_datetime_object(basic_plan)
         map_purchased_plan_with_user_task.delay(
             user_id=user_id, plan_data=plan_details_dict

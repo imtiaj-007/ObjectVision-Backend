@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repository.auth_repository import AuthRepository
 from app.repository.session_repository import SessionRepository
 from app.db.database import db_session_manager
-from cache.token_blacklisting import is_token_blacklisted, add_token_to_blacklist
+from cache.token_tracker import is_token_blacklisted, add_token_to_blacklist
 
 from app.services.user_service import UserService
 from app.services.session_service import SessionService
