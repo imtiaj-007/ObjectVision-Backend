@@ -1,0 +1,106 @@
+services:
+#   traefik:
+#     image: traefik:v2.10
+#     container_name: traefik
+#     command:
+#       - --api.insecure=true
+#       - --providers.docker=true
+#       - --providers.docker.exposedbydefault=false
+#       - --entrypoints.web.address=:80
+#     ports:
+#       - "80:80"
+#       - "8080:8080"  # Traefik dashboard
+#     volumes:
+#       - /var/run/docker.sock:/var/run/docker.sock:ro
+#     networks:
+#       - app_network
+#     depends_on:
+#       - app
+
+  app:
+    container_name: fastapi_app
+    image: object-vision-backend:latest
+    build:
+      context: .
+      args:
+        - BUILD_ENV=${BUILD_ENV:-production}
+    restart: unless-stopped
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.app.rule=PathPrefix(`/`)"
+    #   - "traefik.http.routers.app.entrypoints=web"
+    #   - "traefik.http.services.app.loadbalancer.server.port=8000"
+    #   - "traefik.http.services.app.loadbalancer.sticky=true"
+    #   - "traefik.http.services.app.loadbalancer.sticky.cookie.name=server_id"
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.production
+    environment:
+      - UVICORN_WORKERS=1
+      - ENVIRONMENT=production
+      - REDIS_HOST=redis
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_BACKEND_URL=redis://redis:6379/2
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1024M 
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://127.0.0.1:8000/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      # Named Persistence Volumes
+      - model_storage:/object-vision-backend/ML_models:z,uid=1000,gid=1000
+      - output_files:/object-vision-backend/output:z,uid=1000,gid=1000
+      - upload_files:/object-vision-backend/uploads:z,uid=1000,gid=1000
+      
+      # Local Temporary Volumes
+      - ./logs:/object-vision-backend/logs:z,uid=1000,gid=1000
+      - ./cache/image:/object-vision-backend/cache/image:z,uid=1000,gid=1000
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  redis_data:
+  model_storage:
+  output_files:
+  upload_files:
+  
+
+networks:
+  app_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16

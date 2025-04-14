@@ -138,8 +138,8 @@ class SessionService:
                 value=refresh_token,
                 httponly=True,
                 max_age=(7 if remember_me else 1) * 24 * 60 * 60,
-                secure=settings.ENVIORNMENT == 'production',
-                samesite="Strict" if settings.ENVIORNMENT == 'production' else "Lax"
+                secure=settings.ENVIRONMENT == 'production',
+                samesite="Strict" if settings.ENVIRONMENT == 'production' else "Lax"
             )
             return { **user_token, "refresh_token": refresh_token }
         

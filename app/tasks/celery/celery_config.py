@@ -149,8 +149,8 @@ class CelerySettings(BaseSettings):
             "schedule": crontab(minute='*/5'),  # Every 5 minutes
             "options": {"queue": SCHEDULING_QUEUE, "priority": 3},
         },
-        "delete_cached_files": {
-            "task": "tasks.scheduling.delete_cached_files",
+        "delete_local_files": {
+            "task": "tasks.scheduling.delete_local_files",
             "schedule": crontab(minute='*/15'),  # Every 15 minutes
             "options": {"queue": SCHEDULING_QUEUE, "priority": 3, "expires": 3600},
         },
@@ -186,7 +186,7 @@ class CelerySettings(BaseSettings):
             "enable_utc": True,
             "task_track_started": True,
             "task_time_limit": 300,
-            "worker_concurrency": 4,
+            "worker_concurrency": 2,
             "worker_send_task_events": True,
             "worker_log_format": "[%(asctime)s: %(levelname)s/%(processName)s] %(message)s",
             "worker_redirect_stdouts": True,

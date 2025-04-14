@@ -10,6 +10,7 @@ from app.middleware.request_logger import RequestLoggerMiddleware
 from app.db.database import DatabaseConfig, DatabaseManager
 from app.handlers.exception import ExceptionHandler
 from app.configuration.config import settings
+from app.configuration.ws_manager import get_connection_manager
 from app.utils.logger import log
 from app.docs import app_description
 
@@ -23,16 +24,32 @@ db_manager = DatabaseManager(db_config)
 
 
 @asynccontextmanager
-async def db_lifespan(app: FastAPI):
+async def combined_lifespan(app: FastAPI):
     """
-    lifespan context managers for the DB Session.
-    This ensures that the database connection is properly started and stopped.
+    Lifespan context manager for the application.
+    Handles database connections, Redis, and WebSocket manager initialization.
     """
     try:
         # Start DB connection
-        async with db_manager.lifespan(app):            
+        async with db_manager.lifespan(app):
+            # Initialize Redis and WebSocket manager
+            try:
+                from app.configuration.redis_client import get_async_redis_instance
+                redis = get_async_redis_instance()
+                
+                if not await redis.ping():
+                    log.critical("Failed to connect to Redis - ping failed")
+                    raise Exception("Cannot connect to Redis")
+                
+                # Initialize WebSocket connection manager
+                await get_connection_manager()
+                log.info("✅ Redis and WebSocket manager initialized")
+            
+            except Exception as e:
+                log.critical(f"Failed to initialize Redis or WebSocket manager: {str(e)}")
+                raise        
             yield
-
+    
     finally:
         log.info("✅ Shutdown complete")
 
@@ -42,7 +59,7 @@ app = FastAPI(
     title="Object Detection API",
     description=app_description,
     version="1.0.0",
-    lifespan=db_lifespan
+    lifespan=combined_lifespan
 )
 
 # Custom exception handler to log Exceptions
@@ -82,11 +99,11 @@ app.include_router(api_router, prefix='/api')
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(db_manager.get_db)):
     try:
-        await db.execute(text("SELECT 1"))        
-        return {"status": "Database connection healthy"}
+        await db.execute(text("SELECT 1"))       
+        return { "Database": "Database connection healthy" }
     
     except Exception as e:
-        log.critical(f"Database health check failed: {e}")
+        log.critical(f"Database health check failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database connection failed"

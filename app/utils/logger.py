@@ -123,7 +123,7 @@ class LogConfig:
             )
 
         # Add console handler for development
-        if settings.ENVIORNMENT in ["development", "staging"]:
+        if settings.ENVIRONMENT in ["development", "staging"]:
             logger.add(
                 sys.stdout,
                 format=self._format_log_message,

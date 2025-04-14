@@ -121,15 +121,16 @@ class DetectionRepository:
             images = {image.id: image for image in images_result.scalars().all()}
             
             detections_query = (
-                select(Detection)
+                select(Detection, ProcessedImage)
                 .where(Detection.parent_image_id.in_(image_ids))
+                .join(ProcessedImage, Detection.processed_image_id == ProcessedImage.id)
                 .order_by(Detection.processed_at.desc())
             )
             detections_result = await db.execute(detections_query)
-            detections = detections_result.scalars().all()
+            detection_pairs = detections_result.unique().all()
             
             detection_groups = {}
-            for detection in detections:
+            for detection, processed_image in detection_pairs:
                 if detection.parent_image_id not in detection_groups:
                     detection_groups[detection.parent_image_id] = {}
 
@@ -137,6 +138,7 @@ class DetectionRepository:
                     column.name: getattr(detection, column.name)
                     for column in detection.__table__.columns
                 }
+                detection_dict["output_path"] = processed_image.cloud_processed_path
                 detection_groups[detection.parent_image_id][detection.model_type.value] = detection_dict
             
             processed_results = []

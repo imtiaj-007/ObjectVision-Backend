@@ -18,6 +18,7 @@ from app.configuration.config import settings
 from app.services.s3_bucket_service import s3_manager
 from app.schemas.enums import ImageFormatsEnum, FileType
 from app.helpers.file_types import FileConfig
+from cache.file_tracker import local_file_tracker
 from app.utils.logger import log
 
 
@@ -128,6 +129,7 @@ async def convert_file_format(
         async with aiofiles.open(storage_path, "wb") as buffer:
             await buffer.write(img_buffer.getvalue())
 
+        local_file_tracker.add_file(storage_path)
         return storage_path
 
     except Exception as e:

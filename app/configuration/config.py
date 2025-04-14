@@ -5,8 +5,8 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # env type
-    ENVIORNMENT: str = "development"
-    API_BASE_URL: str = "http:localhost:8000/api/v1"
+    ENVIRONMENT: str = "development"
+    API_BASE_URL: str = "http://localhost:8000/api/v1"
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     PUBLIC_FOLDERS: List[str] = [
         os.path.join("uploads", "image"),
@@ -55,15 +55,15 @@ class Settings(BaseSettings):
     LOG_RETENTION: str = "30 days"
 
     # Redis Credentials
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_DB: int = 0
-    REDIS_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}" or "redis://localhost:6379/0"
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+    REDIS_URL: str = os.getenv("REDIS_URL", f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}")
 
     # Celery credentials
-    CELERY_DB: int = 1
-    CELERY_BROKER_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/{CELERY_DB}" or "redis://localhost:6379/1"
-    CELERY_BACKEND_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/{CELERY_DB}" or "redis://localhost:6379/1"
+    CELERY_DB: int = int(os.getenv("CELERY_DB", "1"))
+    CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", f"redis://{REDIS_HOST}:{REDIS_PORT}/{CELERY_DB}")
+    CELERY_BACKEND_URL: str = os.getenv("CELERY_BACKEND_URL", f"redis://{REDIS_HOST}:{REDIS_PORT}/{CELERY_DB}")
     MAX_RETRIES: int = 3
 
     # Queue namings
