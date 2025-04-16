@@ -3,6 +3,7 @@ import cv2
 import torch
 import numpy as np
 from pathlib import Path
+from threading import Lock
 from typing import Dict, List, Union, Optional
 from tqdm import tqdm
 from datetime import datetime
@@ -12,6 +13,74 @@ from app.configuration.config import settings
 from app.tasks.taskfiles.image_task import compress_processed_image_task
 from cache.file_tracker import local_file_tracker
 from app.utils.logger import log
+
+
+class YOLOProcessorSingleton:
+    _lock = Lock()
+    _instances: Dict[str, 'YOLOProcessor'] = {}
+    _active_tasks: Dict[str, str] = {}
+
+    @classmethod
+    def get_instance(cls, model_size: str ="small", model_types: Optional[List[str]] = None):
+        """
+        Get or create a YOLOProcessor instance based on model size and types.
+
+        Args:
+            model_size (str): Size of models to load ('nano', 'small', 'medium', 'large')
+            model_types (list, optional): List of model types to load
+
+        Returns:
+            YOLOProcessor: Instance of the YOLO processor
+        """
+        key = f"{model_size}_{','.join(sorted(model_types or []))}"
+    
+        if key not in cls._instances:
+            with cls._lock:
+                if key not in cls._instances:
+                    log.info(f"Creating new YOLOProcessor instance with key: {key}")
+                    try:
+                        cls._instances[key] = YOLOProcessor(model_config, model_size, model_types)
+                    except Exception as e:
+                        log.error(f"Instance creation failed: {str(e)}")
+                        raise
+        
+        return cls._instances[key]
+
+    @classmethod
+    def register_task(cls, task_id: str, instance_key: str):
+        """Register that a task is using a specific processor instance"""
+        cls._active_tasks[task_id] = instance_key
+
+    @classmethod
+    def release_task(cls, task_id):
+        """
+        Release resources when a task is completed.
+        If no other tasks are using the same processor, clean it up.
+
+        Args:
+            task_id (str): ID of the completed task
+        """
+        if task_id not in cls._active_tasks:
+            return
+
+        instance_key = cls._active_tasks.pop(task_id)
+
+        if instance_key in cls._instances and not any(
+            key == instance_key for key in cls._active_tasks.values()
+        ):
+            with cls._lock:
+                log.info(f"Cleaning up YOLOProcessor instance: {instance_key}")
+
+                instance = cls._instances[instance_key]
+                for model_type in list(instance.models.keys()):
+                    del instance.models[model_type]
+
+                import gc
+                gc.collect()
+
+                del cls._instances[instance_key]
+                log.info(f"YOLOProcessor instance {instance_key} removed from memory")
+
 
 
 class YOLOProcessor:
@@ -321,7 +390,7 @@ class YOLOProcessor:
 
 
 # Model configuration
-config = {
+model_config = {
     "base_dir": f"{settings.BASE_DIR}/ML_models/yolo11",
     "nano_models": {
         "path": "/nano_models",
