@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Union, Optional
 from fastapi import UploadFile, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.yolo_service import YOLOProcessor, config
+from app.configuration.yolo_processor import YOLOProcessorSingleton
 from app.schemas.enums import WebSocketMessageType, ModelTypeEnum
 from app.schemas.user_schema import UserData
 from app.schemas.detection_schema import DetectionRequest
@@ -118,6 +118,7 @@ class DetectionService:
     ) -> Dict[str, Any]:
         """
         Process image through multiple detection services and stream results via WebSocket.
+        Uses a singleton pattern for YOLO processor to prevent memory leaks.
 
         Args:
             file: Uploaded image file
@@ -184,11 +185,14 @@ class DetectionService:
 
             # Process image through requested or all services
             services_to_run: List[str] = request_data.requested_services or cls.services
-            processor = YOLOProcessor(
-                config, 
+
+            # Get singleton instance of YOLO processor
+            processor = YOLOProcessorSingleton.get_instance(
                 model_size=request_data.model_size, 
                 model_types=services_to_run
             )
+            YOLOProcessorSingleton.register_task(task_id, f"{request_data.model_size}_{','.join(sorted(services_to_run))}")
+
             results = {}
             output_paths: List[str] = []
 
@@ -209,104 +213,112 @@ class DetectionService:
             # Refresh connection TTL before potentially long-running operations
             await connection_manager.refresh_connection(client_id)
 
-            for i, service in enumerate(services_to_run):
-                if service not in cls.services:
-                    continue
+            try:
+                for i, service in enumerate(services_to_run):
+                    if service not in cls.services:
+                        continue
 
-                # Send progress update - starting this service
-                current_progress += progress_per_service / 2
+                    # Send progress update - starting this service
+                    current_progress += progress_per_service / 2
+                    await connection_manager.send_message(
+                        client_id=client_id,
+                        message={
+                            "type": WebSocketMessageType.PROGRESS,
+                            "task_id": task_id,
+                            "progress": current_progress,
+                            "message": f"Processing with {service} model"
+                        }
+                    )
+
+                    # Process image with this service
+                    service_result = await asyncio.to_thread(
+                        processor.process_image,
+                        file_name=unique_filename, 
+                        image_path=file_path, 
+                        model_type=service
+                    )
+                    results[ModelTypeEnum(service.upper())] = service_result
+                    output_paths.append(service_result.get('output_path'))
+
+                    # Update progress for completed service
+                    current_progress += progress_per_service / 2
+                    
+                    # Refresh connection TTL periodically during long-running operations
+                    await connection_manager.refresh_connection(client_id)
+
+                local_file_tracker.add_file(file_path)
+                img_properties = await cls.get_image_properties(file_path)
+
+                # Send progress update
                 await connection_manager.send_message(
                     client_id=client_id,
                     message={
                         "type": WebSocketMessageType.PROGRESS,
                         "task_id": task_id,
-                        "progress": current_progress,
-                        "message": f"Processing with {service} model"
+                        "progress": 80,
+                        "message": "Processing complete, storing results"
                     }
                 )
 
-                # Process image with this service
-                service_result = await asyncio.to_thread(
-                    processor.process_image,
-                    file_name=unique_filename, 
-                    image_path=file_path, 
-                    model_type=service
+                # Construct metadata
+                img_metadata = ImageMetadata(
+                    extension=file_details["extension"],
+                    mime_type=file_details["mime_type"],
+                    file_type=file_details["file_type"],
+                    file_size=file_details["file_size"],
+                    width=img_properties["width"],
+                    height=img_properties["height"],
                 )
-                results[ModelTypeEnum(service.upper())] = service_result
-                output_paths.append(service_result.get('output_path'))
 
-                # Update progress for completed service
-                current_progress += progress_per_service / 2
-                
-                # Refresh connection TTL periodically during long-running operations
+                # Store image_details, detection_results and processed_images in DB and AWS_S3
+                img_data = CreateImage(
+                    filename=unique_filename,
+                    image_metadata=img_metadata,
+                    local_file_path=str(file_path),
+                )
+
+                await connection_manager.send_message(
+                    client_id=client_id,
+                    message={
+                        "type": WebSocketMessageType.PROGRESS,
+                        "task_id": task_id,
+                        "progress": 90,
+                        "message": "Saving results to database and cloud storage"
+                    }
+                )
+
+                # Refresh connection before triggering asynchronous task
                 await connection_manager.refresh_connection(client_id)
 
-            local_file_tracker.add_file(file_path)
-            img_properties = await cls.get_image_properties(file_path)
+                store_image_data_task.delay(
+                    user_id=user_data.id,
+                    username=user_data.username,
+                    image_data=img_data.model_dump(),
+                    services=services_to_run,
+                    detection_data=results,
+                )
 
-            # Send progress update
-            await connection_manager.send_message(
-                client_id=client_id,
-                message={
-                    "type": WebSocketMessageType.PROGRESS,
-                    "task_id": task_id,
-                    "progress": 80,
-                    "message": "Processing complete, storing results"
-                }
-            )
+                data = { **img_data.model_dump(), "results": results }
 
-            # Construct metadata
-            img_metadata = ImageMetadata(
-                extension=file_details["extension"],
-                mime_type=file_details["mime_type"],
-                file_type=file_details["file_type"],
-                file_size=file_details["file_size"],
-                width=img_properties["width"],
-                height=img_properties["height"],
-            )
+                await connection_manager.send_message(
+                    client_id=client_id,
+                    message={
+                        "type": WebSocketMessageType.RESULT,
+                        "task_id": task_id,
+                        "status": "completed",
+                        "progress": 100,
+                        "message": "Processing complete",
+                        "data": data
+                    }
+                )
+                return data
+            
+            except Exception as e:
+                log.error(f"Unexpected error in detection_processor_block: {str(e)}")
+                raise
 
-            # Store image_details, detection_results and processed_images in DB and AWS_S3
-            img_data = CreateImage(
-                filename=unique_filename,
-                image_metadata=img_metadata,
-                local_file_path=str(file_path),
-            )
-
-            await connection_manager.send_message(
-                client_id=client_id,
-                message={
-                    "type": WebSocketMessageType.PROGRESS,
-                    "task_id": task_id,
-                    "progress": 90,
-                    "message": "Saving results to database and cloud storage"
-                }
-            )
-
-            # Refresh connection before triggering asynchronous task
-            await connection_manager.refresh_connection(client_id)
-
-            store_image_data_task.delay(
-                user_id=user_data.id,
-                username=user_data.username,
-                image_data=img_data.model_dump(),
-                services=services_to_run,
-                detection_data=results,
-            )
-
-            data = { **img_data.model_dump(), "results": results }
-
-            await connection_manager.send_message(
-                client_id=client_id,
-                message={
-                    "type": WebSocketMessageType.RESULT,
-                    "task_id": task_id,
-                    "status": "completed",
-                    "progress": 100,
-                    "message": "Processing complete",
-                    "data": data
-                }
-            )
-            return data
+            finally:
+                YOLOProcessorSingleton.release_task(task_id)
         
         except Exception as e:
             log.error(f"Unexpected error occurred in image detection: {str(e)}")        
