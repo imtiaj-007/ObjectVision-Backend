@@ -37,16 +37,22 @@ class UserRepository:
     async def update_user(
         db: AsyncSession, user_id: int, user_data: Dict[str, Any]
     ) -> User:
-        """Update an existing user in the database."""
+        """Update an existing user in the database and return the updated user."""
         try:
+            user = await db.get(User, user_id)
+            if not user:
+                raise ValueError(f"User with ID {user_id} not found.")
+
             validated_data = UserUpdate.model_validate(user_data)
             data_dict = validated_data.model_dump(exclude_unset=True)
 
-            statement = update(User).where(User.id == user_id).values(**data_dict)
-            result = await db.execute(statement)
-            await db.commit()
+            for key, value in data_dict.items():
+                setattr(user, key, value)
 
-            return result.rowcount
+            await db.commit()
+            await db.refresh(user)
+
+            return user
 
         except SQLAlchemyError as db_err:
             log.critical(f"Database error in update_user: {db_err}")
