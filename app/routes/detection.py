@@ -104,7 +104,7 @@ async def validate_usage_limit(
 
 
 @router.get(
-    "/",
+    "",
     response_model=DetectionWithCount,
     status_code=status.HTTP_200_OK,
     summary="Get List of Detection Data",

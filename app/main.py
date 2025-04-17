@@ -59,7 +59,8 @@ app = FastAPI(
     title="Object Detection API",
     description=app_description,
     version="1.0.0",
-    lifespan=combined_lifespan
+    lifespan=combined_lifespan,
+    redirect_slashes=False
 )
 
 # Custom exception handler to log Exceptions
@@ -72,13 +73,16 @@ app.add_middleware(
 )
 
 # CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=[
+#         "http://localhost:3000",
+#         "https://object-vision-frontend.vercel.app"
+#     ],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 # RequestLogger middleware for logging req-res
 app.add_middleware(

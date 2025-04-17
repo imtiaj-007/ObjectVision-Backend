@@ -38,7 +38,6 @@ async def create_presigned_url(request: PresignedUrlRequest):
         #     )
 
         presigned_data = generate_presigned_url(file_url, request.expiry_minutes)
-        print(presigned_data)
         return {
             **presigned_data,
             "file_path": file_path

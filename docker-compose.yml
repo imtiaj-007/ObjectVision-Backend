@@ -3,20 +3,24 @@ services:
         image: traefik:v2.10
         container_name: traefik
         command:
-            - --providers.docker=true
-            - --providers.docker.exposedbydefault=false
-            - --entrypoints.web.address=:80
-            # Production HTTPS
-            - --entrypoints.websecure.address=:443
-            - --entrypoints.websecure.http.tls=true
-            - --entrypoints.web.http.redirections.entrypoint.to=websecure
-            - --entrypoints.web.http.redirections.entrypoint.scheme=https
-            - --certificatesresolvers.le.acme.email=imtiaj.dev.kol@gmail.com
-            - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
-            - --certificatesresolvers.le.acme.tlschallenge=true
+            - "--api.dashboard=true"
+            - "--api.insecure=false"
+            - "--entrypoints.web.address=:80"
+            - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+            - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+            - "--entrypoints.websecure.address=:443"
+            - "--entrypoints.websecure.http.tls.options=default"
+            - "--entrypoints.websecure.http.tls.certresolver=le"
+            - "--certificatesresolvers.le.acme.email=imtiaj.dev.kol@gmail.com"
+            - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+            - "--certificatesresolvers.le.acme.tlschallenge=true"
+            - "--certificatesresolvers.le.acme.keytype=EC256"
+            - "--providers.docker=true"
+            - "--providers.docker.exposedByDefault=false"
+            - "--providers.docker.network=app_network"
         ports:
-            - "80:80"   # HTTP access for local testing
-            - "443:443" # SSL required for production
+            - 80:80     # HTTP access for local testing
+            - 443:443   # SSL required for production
         deploy:
             resources:
                 limits:
@@ -24,7 +28,8 @@ services:
                     memory: 256M
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro
-            - ./letsencrypt:/letsencrypt # For HTTPS certs
+            - ./traefik:/traefik                # traefik.yml file for configurations
+            - ./letsencrypt:/letsencrypt        # For HTTPS certs
         networks:
             - app_network
 
@@ -36,21 +41,34 @@ services:
             args:
                 - BUILD_ENV=${BUILD_ENV:-production}
         restart: unless-stopped
+        expose:
+            - "8000"
         labels:
             - "traefik.enable=true"
-            #   - "traefik.http.routers.app.rule=PathPrefix(`/`)"
-            - "traefik.http.routers.app.entrypoints=web" # For HTTP
             - "traefik.http.routers.app.rule=Host(`api-objectvision-ai.linkpc.net`)"
-            - "traefik.http.routers.app.entrypoints=websecure" # For HTTPS
-            - "traefik.http.routers.app.tls.certresolver=le" # For HTTPS
+            - "traefik.http.routers.app.entrypoints=websecure"
+            - "traefik.http.routers.app.tls=true"
+            - "traefik.http.routers.app.tls.certresolver=le"
+            - "traefik.http.routers.app-docs.rule=PathPrefix(`/docs`) || PathPrefix(`/redoc`)"
+            - "traefik.http.routers.app-docs.entrypoints=websecure"
+            - "traefik.http.routers.app-docs.tls=true"
+            - "traefik.http.routers.app-restricted.rule=Host(`api-objectvision-ai.linkpc.net`) && PathPrefix(`/api/v1/`)"
+            - "traefik.http.routers.app-restricted.entrypoints=websecure"
+            - "traefik.http.routers.app-restricted.tls=true"
+            - "traefik.http.routers.app-restricted.middlewares=api-cors,rate-limit"
+            - "traefik.http.middlewares.api-cors.headers.accessControlAllowMethods=GET,POST,PUT,DELETE,OPTIONS"
+            - "traefik.http.middlewares.api-cors.headers.accessControlAllowOriginList=https://object-vision-frontend.vercel.app,https://api-objectvision-ai.linkpc.net"
+            - "traefik.http.middlewares.api-cors.headers.accessControlAllowHeaders=content-type,authorization,accept,x-requested-with,x-api-key"
+            - "traefik.http.middlewares.api-cors.headers.accessControlAllowCredentials=true"
+            - "traefik.http.middlewares.api-cors.headers.accessControlMaxAge=86400"
+            - "traefik.http.middlewares.api-cors.headers.addVaryHeader=true"
+            - "traefik.http.middlewares.api-cors.headers.stsSeconds=31536000"
+            - "traefik.http.middlewares.api-cors.headers.stsIncludeSubdomains=true"
+            - "traefik.http.middlewares.api-cors.headers.stsPreload=true"
+            - "traefik.http.middlewares.api-cors.headers.forceSTSHeader=true"
+            - "traefik.http.middlewares.rate-limit.ratelimit.average=100"
+            - "traefik.http.middlewares.rate-limit.ratelimit.burst=50"
             - "traefik.http.services.app.loadbalancer.server.port=8000"
-            #   - "traefik.http.services.app.loadbalancer.sticky=true"
-            #   - "traefik.http.services.app.loadbalancer.sticky.cookie.name=server_id"
-            - "traefik.http.routers.app.middlewares=ratelimit@docker"
-            - "traefik.http.middlewares.ratelimit.ratelimit.average=100"
-            - "traefik.http.middlewares.ratelimit.ratelimit.burst=50"
-        # ports:
-        #     - 8000:8000
         env_file:
             - .env.production
         environment:
@@ -113,7 +131,6 @@ volumes:
     model_storage:
     output_files:
     upload_files:
-
 
 networks:
     app_network:

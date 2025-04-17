@@ -302,7 +302,7 @@ class YOLOProcessor:
             # Process image
             log.info(f"Processing image: {image_path} with {model_type} model")
             start_time = datetime.now()
-            output_dir = Path(f"output\{model_type}_results")
+            output_dir = Path(f"output/{model_type}_results")
 
             results = self.models[model_type](
                 str(image_path),
