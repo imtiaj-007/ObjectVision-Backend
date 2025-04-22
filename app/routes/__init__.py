@@ -41,6 +41,7 @@ async def websocket_endpoint(
             "type": "error",
             "message": "Connection with this ID already exists"
         })
+        await connection_manager.disconnect(client_id)
         # await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         # return
     

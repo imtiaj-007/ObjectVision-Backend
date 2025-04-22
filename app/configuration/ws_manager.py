@@ -1,6 +1,6 @@
 import json
 import asyncio
-from typing import Dict, AsyncIterator
+from typing import Dict, AsyncIterator, Optional
 from fastapi import WebSocket
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
@@ -29,7 +29,7 @@ class WSConnectionManager:
         self.redis_prefix = redis_prefix
         self.expire_time = expire_time
         self.connections_key = f"{self.redis_prefix}:connections"
-        self.pubsub = self.redis.pubsub()
+        self.client_pubsubs = {}
 
     def _get_channel_name(self, client_id: str) -> str:
         """Get the Redis channel name for a client"""
@@ -38,6 +38,17 @@ class WSConnectionManager:
     def _get_connection_key(self, client_id: str) -> str:
         """Get the Redis key for a specific connection"""
         return f"{self.redis_prefix}:connection:{client_id}"
+
+    async def _get_client_pubsub(self, client_id: str) -> Redis.pubsub:
+        """Get or create a dedicated pubsub for a client"""
+        if client_id not in self.client_pubsubs:
+            self.client_pubsubs[client_id] = self.redis.pubsub()
+            await self.client_pubsubs[client_id].subscribe(
+                self._get_channel_name(client_id)
+            )
+            log.info(f"Created dedicated pubsub for client {client_id}")
+
+        return self.client_pubsubs[client_id]
 
     async def connect(self, client_id: str, websocket: WebSocket) -> bool:
         """
@@ -55,7 +66,7 @@ class WSConnectionManager:
                 "client_id": client_id,
                 "client_host": f"{websocket.client.host}:{websocket.client.port}",
                 "headers": dict(websocket.headers),
-                "worker_id": id(self),  # Track which worker owns this connection
+                "worker_id": id(self),
             }
 
             # Use transaction to ensure atomic operations
@@ -72,9 +83,8 @@ class WSConnectionManager:
                     )
                     .execute()
                 )
+            await self._get_client_pubsub(client_id)
 
-            # Subscribe to client's channel
-            await self.pubsub.subscribe(self._get_channel_name(client_id))
             log.info(f"Connected client {client_id}")
             return True
 
@@ -100,12 +110,20 @@ class WSConnectionManager:
                     .execute()
                 )
 
-            await self.pubsub.unsubscribe(self._get_channel_name(client_id))
+            # Clean up the pubsub connection
+            if client_id in self.client_pubsubs:
+                pubsub = self.client_pubsubs.pop(client_id)
+                await pubsub.unsubscribe(self._get_channel_name(client_id))
+                await pubsub.close()
+
             log.info(f"Disconnected client {client_id}")
             return True
 
         except RedisError as e:
             log.error(f"Redis error disconnecting client {client_id}: {str(e)}")
+            return False
+        except Exception as e:
+            log.error(f"Unexpected error disconnecting client {client_id}: {str(e)}")
             return False
 
     async def send_message(self, client_id: str, message: dict) -> bool:
@@ -138,29 +156,40 @@ class WSConnectionManager:
         Yields:
             dict: Received messages
         """
-        channel_name = self._get_channel_name(client_id)
+        try:
+            pubsub = await self._get_client_pubsub(client_id)
 
-        # Ensure we're subscribed
-        if channel_name not in self.pubsub.channels:
-            await self.pubsub.subscribe(channel_name)
+            while True:
+                try:
+                    message = await pubsub.get_message(
+                        ignore_subscribe_messages=True, timeout=1.0
+                    )
 
-        while True:
-            try:
-                message = await self.pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=1.0
-                )
+                    if message and message["type"] == "message":
+                        data = message["data"]
+                        if isinstance(data, bytes):
+                            data = data.decode("utf-8")
+                        yield json.loads(data)
 
-                if message and message["type"] == "message":
-                    yield json.loads(message["data"])
+                except asyncio.CancelledError:
+                    break
+                except RedisError as e:
+                    log.error(f"Redis error listening for client {client_id}: {str(e)}")
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    log.error(
+                        f"Unexpected error listening for client {client_id}: {str(e)}"
+                    )
+                    await asyncio.sleep(1)
 
-            except RedisError as e:
-                log.error(f"Redis error listening for client {client_id}: {str(e)}")
-                await asyncio.sleep(1)  # Prevent tight loop on errors
-            except Exception as e:
-                log.error(
-                    f"Unexpected error listening for client {client_id}: {str(e)}"
-                )
-                await asyncio.sleep(1)
+        except Exception as e:
+            log.error(f"Fatal error in listen_messages for {client_id}: {str(e)}")
+        finally:
+            if client_id in self.client_pubsubs:
+                try:
+                    await self.client_pubsubs[client_id].unsubscribe()
+                except Exception:
+                    pass
 
     async def broadcast(self, message: dict, exclude: list[str] = None) -> int:
         """
@@ -180,14 +209,22 @@ class WSConnectionManager:
 
             exclude_set = set(exclude or [])
             count = 0
+            message_str = json.dumps(message)
 
-            for client_id, data in connections.items():
-                client_id = (
-                    client_id.decode() if isinstance(client_id, bytes) else client_id
-                )
-                if client_id not in exclude_set:
-                    if await self.send_message(client_id, message):
-                        count += 1
+            # Use pipeline for better performance with many clients
+            async with self.redis.pipeline() as pipe:
+                for client_id in connections:
+                    client_id = (
+                        client_id.decode()
+                        if isinstance(client_id, bytes)
+                        else client_id
+                    )
+                    if client_id not in exclude_set:
+                        pipe.publish(self._get_channel_name(client_id), message_str)
+
+                # Execute all publish commands in one go
+                results = await pipe.execute()
+                count = sum(1 for r in results if r)
 
             return count
         except RedisError as e:
@@ -197,7 +234,7 @@ class WSConnectionManager:
     async def connection_exists(self, client_id: str) -> bool:
         """Check if a connection exists for the given client ID"""
         try:
-            return await self.redis.exists(self._get_connection_key(client_id))
+            return bool(await self.redis.exists(self._get_connection_key(client_id)))
         except RedisError as e:
             log.error(f"Redis error checking connection {client_id}: {str(e)}")
             return False
@@ -228,6 +265,16 @@ class WSConnectionManager:
             log.error(f"Redis error refreshing connection {client_id}: {str(e)}")
             return False
 
+    async def cleanup(self):
+        """Clean up all resources when shutting down"""
+        for client_id, pubsub in list(self.client_pubsubs.items()):
+            try:
+                await pubsub.unsubscribe()
+                await pubsub.close()
+            except Exception as e:
+                log.error(f"Error closing pubsub for {client_id}: {str(e)}")
+        self.client_pubsubs.clear()
+
 
 # Global instance with enhanced error handling
 _connection_manager = None
@@ -235,7 +282,19 @@ _connection_manager = None
 async def get_connection_manager() -> WSConnectionManager:
     global _connection_manager
     if _connection_manager is None:
-        redis_client = get_async_redis_instance()
-        _connection_manager = WSConnectionManager(redis_client)
-        log.success("WebSocket Connection Manager initialized successfully")
+        try:
+            redis_client = get_async_redis_instance()
+            _connection_manager = WSConnectionManager(redis_client)
+            log.success("WebSocket Connection Manager initialized successfully")
+        except Exception as e:
+            log.error(f"Failed to initialize WebSocket Connection Manager: {str(e)}")
+            raise
     return _connection_manager
+
+
+async def cleanup_connection_manager():
+    global _connection_manager
+    if _connection_manager:
+        await _connection_manager.cleanup()
+        _connection_manager = None
+        log.info("✅ WebSocket Connection Manager disposed")
