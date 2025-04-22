@@ -10,7 +10,7 @@ from app.middleware.request_logger import RequestLoggerMiddleware
 from app.db.database import DatabaseConfig, DatabaseManager
 from app.handlers.exception import ExceptionHandler
 from app.configuration.config import settings
-from app.configuration.ws_manager import get_connection_manager
+from app.configuration.ws_manager import get_connection_manager, cleanup_connection_manager
 from app.utils.logger import log
 from app.docs import app_description
 
@@ -51,6 +51,7 @@ async def combined_lifespan(app: FastAPI):
             yield
     
     finally:
+        await cleanup_connection_manager()
         log.info("✅ Shutdown complete")
 
 
@@ -59,7 +60,8 @@ app = FastAPI(
     title="Object Detection API",
     description=app_description,
     version="1.0.0",
-    lifespan=combined_lifespan
+    lifespan=combined_lifespan,
+    redirect_slashes=False
 )
 
 # Custom exception handler to log Exceptions
@@ -74,7 +76,10 @@ app.add_middleware(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://object-vision-frontend.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,7 +88,7 @@ app.add_middleware(
 # RequestLogger middleware for logging req-res
 app.add_middleware(
     RequestLoggerMiddleware,
-    exclude_paths={"/health", "/metrics", "/favicon.ico", "/docs", "/openapi.json"},
+    exclude_paths={"/health", "/metrics", "/favicon.ico", "/docs", "/redoc", "/openapi.json"},
     exclude_prefixes={"/api/v1/files"},
     slow_request_threshold=5.0,
     max_body_size=1024 * 100,

@@ -71,10 +71,10 @@ class OTPService:
             "updated_at": datetime.now(timezone.utc),
             "updated_by": user_id,
         }
-        await UserRepository.update_user(db, user_id, payload)
+        user = await UserRepository.update_user(db, user_id, payload)
 
         # Send Welcome email to the user
-        recipient = {"email": email, "name": ""}
+        recipient = {"email": email, "name": user.name}
         send_welcome_email_task.delay(recipient)
 
         # Map Free subscription plan with the user
