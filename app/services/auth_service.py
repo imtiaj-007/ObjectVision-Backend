@@ -12,10 +12,14 @@ from app.services.user_service import UserService
 from app.services.session_service import SessionService
 from app.services.password_service import PasswordService
 from app.services.token_service import TokenService
+from app.services.subscription_service import SubscriptionService
 
-from app.schemas.user_schema import UserLogin, UserCreate, UserData
 from app.db.models.user_model import User
+from app.schemas.user_schema import UserLogin, UserCreate, UserData
 from app.schemas.token_schema import TokenResponse
+from app.utils import helpers
+from app.tasks.taskfiles.email_task import send_welcome_email_task
+from app.tasks.taskfiles.subscription_task import map_purchased_plan_with_user_task
 
 
 security = HTTPBearer() # FastAPI provides built-in Bearer token extraction
@@ -186,7 +190,17 @@ class AuthService:
                     "password": email
                 }
                 user_data = UserCreate(**data)
-                user = await UserService.create_user(db, user_data)
+                user = await UserService.create_user(db, user_data, type='oauth')
+
+                basic_plan = await SubscriptionService.get_subscription_plan_with_features(db, 1)
+        
+                plan_details_dict = helpers.serialize_datetime_object(basic_plan)
+                map_purchased_plan_with_user_task.delay(
+                    user_id=user.id, plan_data=plan_details_dict
+                )
+
+                recipient = {"email": user.email, "name": user.name}
+                send_welcome_email_task.delay(recipient)
             
             oAuth_obj: Dict[str, Any] = {
                 "oauth_provider": "Google",

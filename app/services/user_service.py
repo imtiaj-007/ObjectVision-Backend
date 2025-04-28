@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +20,8 @@ class UserService:
     async def create_user(
         db: AsyncSession, 
         user_data: UserCreate, 
-        creator: Optional[UserData] = None
+        creator: Optional[UserData] = None,
+        type: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create a new User"""
 
@@ -45,15 +46,17 @@ class UserService:
         if creator:
             #TODO: Send user email and random password, using which he can login first time and reset the password
             pass
+
+        if type and type == 'oauth':
+            return user
         else:
             await OTPService.create_otp(db, user)                                   
-
-        return {
-            "status": 1, 
-            "message": "User has been created successfully.",
-            "user_id": user.id,
-            "email": user.email
-        }
+            return {
+                "status": 1, 
+                "message": "User has been created successfully.",
+                "user_id": user.id,
+                "email": user.email
+            }
 
     @staticmethod
     async def get_user_profile(
