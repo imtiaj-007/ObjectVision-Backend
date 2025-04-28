@@ -1,4 +1,3 @@
-import json
 from typing import Any, Dict
 from datetime import datetime, timedelta, timezone
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -72,17 +71,15 @@ class OTPService:
             "updated_by": user_id,
         }
         user = await UserRepository.update_user(db, user_id, payload)
-
-        # Send Welcome email to the user
-        recipient = {"email": email, "name": user.name}
-        send_welcome_email_task.delay(recipient)
-
-        # Map Free subscription plan with the user
         basic_plan = await SubscriptionService.get_subscription_plan_with_features(db, 1)
+        
         plan_details_dict = helpers.serialize_datetime_object(basic_plan)
         map_purchased_plan_with_user_task.delay(
-            user_id=user_id, plan_data=plan_details_dict
+            user_id=user.id, plan_data=plan_details_dict
         )
+
+        recipient = {"email": user.email, "name": user.name}
+        send_welcome_email_task.delay(recipient)
 
         return {"status": 1, "message": "OTP verified successfully."}
 
